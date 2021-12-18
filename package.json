@@ -1,0 +1,42 @@
+{
+  "name": "ti2-ventrata",
+  "version": "1.0.0",
+  "description": "Ventrata's TI2 Plugin",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TourConnect/ti2-ventrata.git"
+  },
+  "author": "Salvador Aceves",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TourConnect/ti2-ventrata/issues"
+  },
+  "homepage": "https://github.com/TourConnect/ti2-ventrata#readme",
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/"
+    ],
+    "setupFilesAfterEnv": [
+      "./jest.setup.js"
+    ]
+  },
+  "dependencies": {
+    "axios": "^0.24.0",
+    "bluebird": "^3.7.2",
+    "moment": "^2.29.1",
+    "ramda": "^0.27.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.4.1",
+    "eslint-config-airbnb": "^19.0.2",
+    "eslint-plugin-babel": "^5.3.1",
+    "faker": "^5.5.3",
+    "jest": "^27.4.5",
+    "jest-diff": "^27.4.2"
+  }
+}
