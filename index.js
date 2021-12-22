@@ -339,7 +339,6 @@ class Plugin {
       octoEnv = this.octoEnv,
       acceptLanguage = this.acceptLanguage,
     },
-    token,
     payload: {
       availabilityKey,
       notes,
@@ -375,6 +374,34 @@ class Plugin {
       method: 'post',
       url,
       data,
+      headers,
+    }));
+    return({ booking: doMap(booking, bookingMap) });
+  }
+
+  async cancelBooking({
+    token: {
+      apiKey = this.apiKey,
+      endpoint = this.endpoint,
+      octoEnv = this.octoEnv,
+      acceptLanguage = this.acceptLanguage,
+    },
+    payload: {
+      bookingId,
+      reason,
+    },
+  }) {
+    assert(!isNilOrEmpty(bookingId), 'Invalid booking id');
+    const headers = getHeaders({
+      apiKey,
+      endpoint,
+      octoEnv,
+    });
+    const url = `${endpoint || this.endpoint}/bookings/${bookingId}`;
+    let booking = R.path(['data'], await axios({
+      method: 'delete',
+      url,
+      data: { reason },
       headers,
     }));
     return({ booking: doMap(booking, bookingMap) });

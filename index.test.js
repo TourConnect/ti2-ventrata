@@ -173,6 +173,21 @@ describe('search tests', () => {
       expect(R.path(['id'], booking)).toBeTruthy()
       expect(R.path(['supplierId'], booking)).toBeTruthy()
       expect(R.path(['cancellable'], booking)).toBeTruthy()
+      // console.log({ booking });
+    });
+    it.only('should be able to cancel the booking', async () => {
+      const retVal = await app.cancelBooking({
+        token,
+        payload: {
+          bookingId: booking.id,
+          reason: faker.lorem.paragraph(),
+        }
+      });
+      expect(retVal.booking).toBeTruthy();
+      ({ booking } = retVal);
+      expect(booking).toBeTruthy();
+      expect(R.path(['id'], booking)).toBeTruthy()
+      expect(R.path(['cancellable'], booking)).toBeFalsy()
     });
  });
 });
