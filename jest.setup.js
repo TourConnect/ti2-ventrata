@@ -3,7 +3,7 @@
 const { equals } = require('expect/build/jasmineUtils');
 const { diff: diffDefault } = require('jest-diff');
 
-require('util').inspect.defaultOptions.depth = 4; // show 4 levels if objects
+require('util').inspect.defaultOptions.depth = 8;
 
 expect.extend({
   toContainObject(receivedParam, argument) {

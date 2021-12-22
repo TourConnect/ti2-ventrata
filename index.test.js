@@ -150,17 +150,29 @@ describe('search tests', () => {
     });
     let booking;
     it.only('should be able to create a booking', async () => {
+      const fullName = faker.name.findName().split(' ');
       const retVal = await app.createBooking({
         token,
         payload: {
           availabilityKey,
-          notes: 'demo booking',
+          notes: faker.lorem.paragraph(),
+          holder: {
+            name: fullName[0],
+            surname: fullName[1],
+            phoneNumber: faker.phone.phoneNumber(),
+            emailAddress: `salvador+tests_${faker.lorem.slug()}@tourconnect.com`,
+            country: faker.address.countryCode(),
+            locales:  ['en-US', 'en', 'es'],
+          },
+          reference: faker.datatype.uuid(),
         },
       });
       expect(retVal.booking).toBeTruthy();
       ({ booking } = retVal);
       expect(booking).toBeTruthy();
-      console.log({ booking });
+      expect(R.path(['id'], booking)).toBeTruthy()
+      expect(R.path(['supplierId'], booking)).toBeTruthy()
+      expect(R.path(['cancellable'], booking)).toBeTruthy()
     });
  });
 });
