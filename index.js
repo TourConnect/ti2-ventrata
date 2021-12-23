@@ -406,6 +406,62 @@ class Plugin {
     }));
     return({ booking: doMap(booking, bookingMap) });
   }
+
+  async searchBooking({
+    token: {
+      apiKey = this.apiKey,
+      endpoint = this.endpoint,
+      octoEnv = this.octoEnv,
+      acceptLanguage = this.acceptLanguage,
+    },
+    payload: {
+      bookingId,
+      resellerReference,
+      supplierId,
+    },
+  }) {
+    assert(
+      !isNilOrEmpty(bookingId)
+      || !isNilOrEmpty(resellerReference)
+      || !isNilOrEmpty(supplierId),
+      'at least one parameter is required',
+    );
+    const headers = getHeaders({
+      apiKey,
+      endpoint,
+      octoEnv,
+    });
+    const bookings = await (async () => {
+      let url;
+      if (bookingId) {
+        url = `${endpoint || this.endpoint}/bookings/${bookingId}`;
+        return [
+          R.path(['data'], await axios({
+            method: 'get',
+            url,
+            headers,
+          }))
+        ];
+      }
+      if (resellerReference) {
+        url = `${endpoint || this.endpoint}/bookings?resellerReference=${resellerReference}`;
+        return R.path(['data'], await axios({
+          method: 'get',
+          url,
+          headers,
+        }));
+      }
+      if (supplierId) {
+        url = `${endpoint || this.endpoint}/bookings?supplierReference=${supplierId}`;
+        return R.path(['data'], await axios({
+          method: 'get',
+          url,
+          headers,
+        }));
+      }
+    })();
+    return({ bookings: bookings.map(doMapCurry(bookingMap)) });
+  }
 }
 
 const pickUnit = (units, paxs) => {

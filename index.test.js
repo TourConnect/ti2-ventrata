@@ -149,6 +149,7 @@ describe('search tests', () => {
       expect(availabilityKey).toBeTruthy();
     });
     let booking;
+    const reference = faker.datatype.uuid();
     it.only('should be able to create a booking', async () => {
       const fullName = faker.name.findName().split(' ');
       const retVal = await app.createBooking({
@@ -164,7 +165,7 @@ describe('search tests', () => {
             country: faker.address.countryCode(),
             locales:  ['en-US', 'en', 'es'],
           },
-          reference: faker.datatype.uuid(),
+          reference,
         },
       });
       expect(retVal.booking).toBeTruthy();
@@ -188,6 +189,40 @@ describe('search tests', () => {
       expect(booking).toBeTruthy();
       expect(R.path(['id'], booking)).toBeTruthy()
       expect(R.path(['cancellable'], booking)).toBeFalsy()
+    });
+    let bookings = [];
+    it.only('it should be able to search bookings by id', async () => {
+      const retVal = await app.searchBooking({
+        token,
+        payload: {
+          bookingId: booking.id,
+        }
+      });
+      expect(Array.isArray(retVal.bookings)).toBeTruthy();
+      ({ bookings } = retVal);
+      expect(R.path([0, 'id'], bookings)).toBeTruthy()
+    });
+    it.only('it should be able to search bookings by reference', async () => {
+      const retVal = await app.searchBooking({
+        token,
+        payload: {
+          resellerReference: reference,
+        }
+      });
+      expect(Array.isArray(retVal.bookings)).toBeTruthy();
+      ({ bookings } = retVal);
+      expect(R.path([0, 'id'], bookings)).toBeTruthy()
+    });
+    it.only('it should be able to search bookings by supplierId', async () => {
+      const retVal = await app.searchBooking({
+        token,
+        payload: {
+          supplierId: booking.supplierId,
+        }
+      });
+      expect(Array.isArray(retVal.bookings)).toBeTruthy();
+      ({ bookings } = retVal);
+      expect(R.path([0, 'id'], bookings)).toBeTruthy()
     });
  });
 });
