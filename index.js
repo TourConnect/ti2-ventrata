@@ -175,7 +175,7 @@ class Plugin {
     payload,
   }) {
     let url = `${endpoint || this.endpoint}/products`;
-    if (!isNilOrEmptyArray(payload)) {
+    if (!isNilOrEmpty(payload)) {
       if (payload.productId) {
         url = `${url}/${payload.productId}`
       }
@@ -193,7 +193,7 @@ class Plugin {
     if (!Array.isArray(results)) results = [results];
     let products = results.map(e => doMap(e, productMapIn))
     // dynamic extra filtering
-    if (!isNilOrEmptyArray(payload)) {
+    if (!isNilOrEmpty(payload)) {
       const extraFilters = R.omit(['productId'], payload);
       if (Object.keys(extraFilters).length > 0) {
         products = products.filter(product => {
@@ -439,7 +439,7 @@ class Plugin {
     });
     const bookings = await (async () => {
       let url;
-      if (bookingId) {
+      if (!isNilOrEmpty(bookingId)) {
         url = `${endpoint || this.endpoint}/bookings/${bookingId}`;
         return [
           R.path(['data'], await axios({
@@ -449,7 +449,7 @@ class Plugin {
           }))
         ];
       }
-      if (resellerReference) {
+      if (!isNilOrEmpty(resellerReference)) {
         url = `${endpoint || this.endpoint}/bookings?resellerReference=${resellerReference}`;
         return R.path(['data'], await axios({
           method: 'get',
@@ -457,7 +457,7 @@ class Plugin {
           headers,
         }));
       }
-      if (supplierId) {
+      if (!isNilOrEmpty(supplierId)) {
         url = `${endpoint || this.endpoint}/bookings?supplierReference=${supplierId}`;
         return R.path(['data'], await axios({
           method: 'get',
@@ -465,7 +465,7 @@ class Plugin {
           headers,
         }));
       }
-      if (travelDateStart) {
+      if (!isNilOrEmpty(travelDateStart)) {
         const localDateStart = moment(travelDateStart, dateFormat).format()
         const localDateEnd = moment(travelDateEnd, dateFormat).format()
         url = `${endpoint || this.endpoint}/bookings?localDateStart=${encodeURIComponent(localDateStart)}&localDateEnd=${encodeURIComponent(localDateEnd)}`;
