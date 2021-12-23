@@ -418,12 +418,18 @@ class Plugin {
       bookingId,
       resellerReference,
       supplierId,
+      travelDateStart,
+      travelDateEnd,
+      dateFormat,
     },
   }) {
     assert(
       !isNilOrEmpty(bookingId)
       || !isNilOrEmpty(resellerReference)
-      || !isNilOrEmpty(supplierId),
+      || !isNilOrEmpty(supplierId)
+      || !(
+        isNilOrEmpty(travelDateStart) && isNilOrEmpty(travelDateEnd) && isNilOrEmpty(dateFormat)
+      ),
       'at least one parameter is required',
     );
     const headers = getHeaders({
@@ -458,6 +464,17 @@ class Plugin {
           url,
           headers,
         }));
+      }
+      if (travelDateStart) {
+        const localDateStart = moment(travelDateStart, dateFormat).format()
+        const localDateEnd = moment(travelDateEnd, dateFormat).format()
+        url = `${endpoint || this.endpoint}/bookings?localDateStart=${encodeURIComponent(localDateStart)}&localDateEnd=${encodeURIComponent(localDateEnd)}`;
+        return R.path(['data'], await axios({
+          method: 'get',
+          url,
+          headers,
+        }));
+
       }
     })();
     return({ bookings: bookings.map(doMapCurry(bookingMap)) });

@@ -123,7 +123,7 @@ describe('search tests', () => {
       }]);
     });
     let availabilityKey;
-    it.only('should be able to get availability', async () => {
+    it('should be able to get availability', async () => {
       const retVal = await app.searchAvailability({
         token,
         payload: {
@@ -150,7 +150,7 @@ describe('search tests', () => {
     });
     let booking;
     const reference = faker.datatype.uuid();
-    it.only('should be able to create a booking', async () => {
+    it('should be able to create a booking', async () => {
       const fullName = faker.name.findName().split(' ');
       const retVal = await app.createBooking({
         token,
@@ -176,7 +176,7 @@ describe('search tests', () => {
       expect(R.path(['cancellable'], booking)).toBeTruthy()
       // console.log({ booking });
     });
-    it.only('should be able to cancel the booking', async () => {
+    it('should be able to cancel the booking', async () => {
       const retVal = await app.cancelBooking({
         token,
         payload: {
@@ -191,7 +191,7 @@ describe('search tests', () => {
       expect(R.path(['cancellable'], booking)).toBeFalsy()
     });
     let bookings = [];
-    it.only('it should be able to search bookings by id', async () => {
+    it('it should be able to search bookings by id', async () => {
       const retVal = await app.searchBooking({
         token,
         payload: {
@@ -202,7 +202,7 @@ describe('search tests', () => {
       ({ bookings } = retVal);
       expect(R.path([0, 'id'], bookings)).toBeTruthy()
     });
-    it.only('it should be able to search bookings by reference', async () => {
+    it('it should be able to search bookings by reference', async () => {
       const retVal = await app.searchBooking({
         token,
         payload: {
@@ -213,11 +213,24 @@ describe('search tests', () => {
       ({ bookings } = retVal);
       expect(R.path([0, 'id'], bookings)).toBeTruthy()
     });
-    it.only('it should be able to search bookings by supplierId', async () => {
+    it('it should be able to search bookings by supplierId', async () => {
       const retVal = await app.searchBooking({
         token,
         payload: {
           supplierId: booking.supplierId,
+        }
+      });
+      expect(Array.isArray(retVal.bookings)).toBeTruthy();
+      ({ bookings } = retVal);
+      expect(R.path([0, 'id'], bookings)).toBeTruthy()
+    });
+    it('it should be able to search bookings by travelDate', async () => {
+      const retVal = await app.searchBooking({
+        token,
+        payload: {
+          travelDateStart: moment().add(6, 'M').format(dateFormat),
+          travelDateEnd: moment().add(6, 'M').add(2, 'd').format(dateFormat),
+          dateFormat,
         }
       });
       expect(Array.isArray(retVal.bookings)).toBeTruthy();
