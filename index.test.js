@@ -206,7 +206,7 @@ describe('search tests', () => {
       const retVal = await app.searchBooking({
         token,
         payload: {
-          resellerReference: reference,
+          bookingId: reference,
         }
       });
       expect(Array.isArray(retVal.bookings)).toBeTruthy();
@@ -217,7 +217,7 @@ describe('search tests', () => {
       const retVal = await app.searchBooking({
         token,
         payload: {
-          supplierId: booking.supplierId,
+          bookingId: booking.supplierId,
         }
       });
       expect(Array.isArray(retVal.bookings)).toBeTruthy();

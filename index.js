@@ -109,6 +109,16 @@ const unitItemMap = {
   unit: unit => doMap(unit, unitMap), 
 };
 
+const contactMapOut = {
+  country: R.path(['country']),
+  emailAddress: R.path(['emailAddress']),
+  name: R.path(['firstName']),
+  surname: R.path(['lastName']),
+  fullName: R.path(['fullName']),
+  locales: R.path(['locales']),
+  notes: R.path(['notes']),
+  phoneNumber: R.path(['phoneNumber']),
+};
 
 const bookingMap = {
   id: R.path(['id']),
@@ -131,7 +141,7 @@ const bookingMap = {
   end: R.path(['availability', 'localDateTimeEnd']),
   allDay: R.path(['availability', 'allDay']),
   bookingDate: R.path(['hotel', 'utcCreatedAt']),
-  holder: R.path(['contact']),
+  holder: booking => doMap(R.path(['contact'], booking), contactMapOut),
   telephone: R.pathOr(undefined, ['contact', 'phoneNumber']),
   notes: R.pathOr(undefined, ['notes']),
   price: R.path(['pricing']),
@@ -388,16 +398,17 @@ class Plugin {
     },
     payload: {
       bookingId,
+      id,
       reason,
     },
   }) {
-    assert(!isNilOrEmpty(bookingId), 'Invalid booking id');
+    assert(!isNilOrEmpty(bookingId) || !isNilOrEmpty(id), 'Invalid booking id');
     const headers = getHeaders({
       apiKey,
       endpoint,
       octoEnv,
     });
-    const url = `${endpoint || this.endpoint}/bookings/${bookingId}`;
+    const url = `${endpoint || this.endpoint}/bookings/${bookingId || id}`;
     let booking = R.path(['data'], await axios({
       method: 'delete',
       url,
@@ -422,6 +433,7 @@ class Plugin {
       travelDateEnd,
       dateFormat,
     },
+    token,
   }) {
     assert(
       !isNilOrEmpty(bookingId)
@@ -437,17 +449,25 @@ class Plugin {
       endpoint,
       octoEnv,
     });
+    const searchByUrl = async url => {
+      try {
+        return R.path(['data'], await axios({
+          method: 'get',
+          url,
+          headers,
+        }));
+      } catch (err) {
+        return [];
+      }
+    }
     const bookings = await (async () => {
       let url;
       if (!isNilOrEmpty(bookingId)) {
-        url = `${endpoint || this.endpoint}/bookings/${bookingId}`;
-        return [
-          R.path(['data'], await axios({
-            method: 'get',
-            url,
-            headers,
-          }))
-        ];
+        return Promise.all([
+          searchByUrl(`${endpoint || this.endpoint}/bookings/${bookingId}`),
+          searchByUrl(`${endpoint || this.endpoint}/bookings?resellerReference=${bookingId}`),
+          searchByUrl(`${endpoint || this.endpoint}/bookings?supplierReference=${bookingId}`),
+        ]);
       }
       if (!isNilOrEmpty(resellerReference)) {
         url = `${endpoint || this.endpoint}/bookings?resellerReference=${resellerReference}`;
@@ -474,10 +494,9 @@ class Plugin {
           url,
           headers,
         }));
-
       }
     })();
-    return({ bookings: bookings.map(doMapCurry(bookingMap)) });
+    return({ bookings: R.unnest(bookings).map(doMapCurry(bookingMap)) });
   }
 }
 
