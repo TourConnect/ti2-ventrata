@@ -1,5 +1,5 @@
 {
-  "name": "ti2-ventrata",
+  "name": "@tourconnect/ti2-ventrata",
   "version": "1.0.1",
   "description": "Ventrata's TI2 Plugin",
   "main": "index.js",
