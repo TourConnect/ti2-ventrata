@@ -32,6 +32,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           unrelated: true
+          branch: main
   publish-gpr:
     if: github.ref == 'refs/heads/main'
     needs: build_and_test
