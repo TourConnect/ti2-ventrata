@@ -1,0 +1,49 @@
+name: Node.js Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm test
+        env:
+          ti2_ventrata_endpoint: 'https://api.ventrata.com/octo'
+          ti2_ventrata_apiKey: ${{ secrets.VENTRATA_APIKEY }}
+          ti2_ventrata_octoEnv: 'test'
+          ti2_ventrata_acceptLanguage: 'en'
+          ti2_ventrata_jwtKey: 'Reliance-Overload4-Lyrics'
+  tag:
+    if: github.ref == 'refs/heads/main'
+    needs: build_and_test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: tool3/bump@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          unrelated: true
+  publish-gpr:
+    if: github.ref == 'refs/heads/main'
+    needs: build_and_test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12
+          registry-url: https://npm.pkg.github.com
+      - run: npm ci
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
