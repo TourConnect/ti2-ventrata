@@ -184,11 +184,11 @@ describe('search tests', () => {
           reason: faker.lorem.paragraph(),
         }
       });
-      expect(retVal.booking).toBeTruthy();
-      ({ booking } = retVal);
-      expect(booking).toBeTruthy();
-      expect(R.path(['id'], booking)).toBeTruthy()
-      expect(R.path(['cancellable'], booking)).toBeFalsy()
+      ({ cancellation } = retVal);
+      expect(cancellation).toBeTruthy();
+      expect(cancellation).toBeTruthy();
+      expect(R.path(['id'], cancellation)).toBeTruthy()
+      expect(R.path(['cancellable'], cancellation)).toBeFalsy()
     });
     let bookings = [];
     it('it should be able to search bookings by id', async () => {

@@ -415,7 +415,7 @@ class Plugin {
       data: { reason },
       headers,
     }));
-    return({ booking: doMap(booking, bookingMap) });
+    return({ cancellation: doMap(booking, bookingMap) });
   }
 
   async searchBooking({
