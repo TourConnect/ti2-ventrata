@@ -1,5 +1,5 @@
 {
-  "name": "@tourconnect/ti2-ventrata",
+  "name": "ti2-ventrata",
   "version": "1.0.3",
   "description": "Ventrata's TI2 Plugin",
   "main": "index.js",
@@ -10,8 +10,8 @@
     "type": "git",
     "url": "git+https://github.com/TourConnect/ti2-ventrata.git"
   },
-  "author": "Salvador Aceves",
-  "license": "ISC",
+  "author": "",
+  "license": "GPLV3",
   "bugs": {
     "url": "https://github.com/TourConnect/ti2-ventrata/issues"
   },

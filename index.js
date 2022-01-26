@@ -171,8 +171,7 @@ const getHeaders = ({ apiKey, acceptLanguage, octoEnv }) => ({
 class Plugin {
   constructor(params) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
-      const nuName = attr.replace(/_/g, '-').replace(`${pluginName}-`, '');
-      this[nuName] = value;
+      this[attr] = value;
     });
   }
   async searchProducts({

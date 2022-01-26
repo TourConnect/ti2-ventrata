@@ -3,8 +3,7 @@ name: Node.js Package
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
@@ -33,18 +32,12 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           unrelated: true
           branch: main
-  publish-gpr:
+  publish-npm:
     if: github.ref == 'refs/heads/main'
-    needs: build_and_test
+    needs: tag
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v1
+      - uses: JS-DevTools/npm-publish@v1
         with:
-          node-version: 12
-          registry-url: https://npm.pkg.github.com
-      - run: npm ci
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-
+          token: ${{ secrets.NPM_TOKEN }}
