@@ -4,15 +4,11 @@ const moment = require('moment');
 const faker = require('faker');
 
 const Plugin = require('./index');
-const { name: pluginNameParam } = require('./package.json');
 const fixtureUnits = require('./__fixtures__/units.js');
 
-const pluginName = pluginNameParam.replace(/@(.+)\//g, '');
-
-const app = new Plugin(R.pickBy(
-  (_val, key) => key.replace(/_/g, '-').substring(0, pluginName.length) === pluginName,
-  process.env,
-));
+const app = new Plugin({
+  jwtKey: process.env.ti2_ventrata_jwtKey,
+});
 
 const rnd = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -22,10 +18,10 @@ describe('search tests', () => {
     productName: 'Pub Crawl Tour',
   }
   const token = {
-    apiKey: app.apiKey,
-    endpoint: app.endpoint,
-    octoEnv: app.octoEnv,
-    acceptLanguage: app.acceptLanguage,
+    apiKey: process.env.ti2_ventrata_apiKey,
+    endpoint: process.env.ti2_ventrata_endpoint,
+    octoEnv: process.env.ti2_ventrata_octoEnv,
+    acceptLanguage: process.env.ti2_ventrata_acceptLanguage,
   };
   const dateFormat = 'DD/MM/YYYY';
   beforeAll(async () => {
