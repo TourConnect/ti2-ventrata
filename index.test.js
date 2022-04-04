@@ -85,11 +85,34 @@ describe('search tests', () => {
         token,
         payload: {
           productName: '*bus*',
-        }
+        },
       });
       expect(Array.isArray(retVal.products)).toBeTruthy();
       expect(retVal.products.length).toBeGreaterThan(0);
       busProducts = retVal.products;
+    });
+    it('should be able to get an availability calendar', async () => {
+      const retVal = await app.availabilityCalendar({
+        token,
+        payload: {
+          startDate: moment().add(6, 'M').format(dateFormat),
+          endDate: moment().add(6, 'M').add(2, 'd').format(dateFormat),
+          dateFormat,
+          productIds: [
+            '28ca088b-bc7b-4746-ab06-5971f1ed5a5e',
+            '5d981651-e204-4549-bfbe-691043dd2515',
+          ],
+          optionIds: ['DEFAULT', 'DEFAULT'],
+          occupancies: [
+            [{ age: 30 }, { age: 40 }],
+            [{ age: 30 }, { age: 40 }],
+          ],
+        },
+      });
+      expect(retVal).toBeTruthy();
+      const { availability } = retVal;
+      expect(availability).toHaveLength(2);
+      expect(availability[0].length).toBeGreaterThan(0);
     });
     it('should be able to get quotes', async () => {
       const retVal = await app.searchQuote({
@@ -99,9 +122,8 @@ describe('search tests', () => {
           endDate: moment().add(6, 'M').add(2, 'd').format(dateFormat),
           dateFormat,
           productIds: busProducts.map(({ productId }) => productId),
-          optionIds: busProducts.map(({ options }) => 
-            faker.random.arrayElement(options).optionId
-          ),
+          optionIds: busProducts.map(({ options }) =>
+            faker.random.arrayElement(options).optionId),
           occupancies: [
             [{ age: 30 }, { age: 40 }],
             [{ age: 30 }, { age: 40 }],
@@ -109,10 +131,10 @@ describe('search tests', () => {
         },
       });
       expect(retVal).toBeTruthy();
-      ({ quote } = retVal);
+      const { quote } = retVal;
       expect(quote.length).toBeGreaterThan(0);
       expect(quote[0]).toContainObject([{
-        rateId: 'adult',
+        rateName: 'adult',
         pricing: expect.toContainObject([{
           currency: 'USD',
         }]),
@@ -128,7 +150,7 @@ describe('search tests', () => {
           dateFormat,
           productIds: [
             '28ca088b-bc7b-4746-ab06-5971f1ed5a5e',
-            '5d981651-e204-4549-bfbe-691043dd2515'
+            '5d981651-e204-4549-bfbe-691043dd2515',
           ],
           optionIds: ['DEFAULT', 'DEFAULT'],
           occupancies: [
@@ -138,9 +160,9 @@ describe('search tests', () => {
         },
       });
       expect(retVal).toBeTruthy();
-      ({ availability } = retVal);
+      const { availability } = retVal;
       expect(availability).toHaveLength(2);
-      expect(availability[0].length).toBeGreaterThan(0)
+      expect(availability[0].length).toBeGreaterThan(0);
       availabilityKey = R.path([0, 0, 'key'], availability);
       expect(availabilityKey).toBeTruthy();
     });
