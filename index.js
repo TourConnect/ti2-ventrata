@@ -6,6 +6,8 @@ const moment = require('moment');
 const jwt = require('jsonwebtoken');
 const wildcardMatch = require('./utils/wildcardMatch');
 
+const CONCURRENCY = 3; // is this ok ?
+
 const isNilOrEmpty = R.either(R.isNil, R.isEmpty);
 const isNilOrEmptyArray = el => {
   if (!Array.isArray(el)) return true;
@@ -36,7 +38,7 @@ const productMapIn = {
 
 const rateMap = {
   rateId: R.path(['id']),
-  rateName: R.path(['internalName']),
+  rateName: rateName => R.toLower(R.path(['internalName'], rateName)),
   pricing: R.path(['pricingFrom']),
 };
 
@@ -245,7 +247,7 @@ class Plugin {
         url,
         headers,
       });
-    }, { concurrency: 3 /* is this ok ? */ }).map(({ data }) => data);
+    }, { concurrency: CONCURRENCY }).map(({ data }) => data);
     productsDetail = R.indexBy(R.prop('id'), productsDetail);
     // console.log({ optionIds });
     productIds.forEach((productId, productIdIx) => {
@@ -324,7 +326,7 @@ class Plugin {
           data,
           headers,
         });
-      }, { concurrency: 3 }) // is this ok ?
+      }, { concurrency: CONCURRENCY })
     ).map(({ data }) => data);
     availability = availability.map(
       (avails, availsIx) => (avails.map(
@@ -342,6 +344,78 @@ class Plugin {
         })),
       )),
     );
+    return { availability };
+  }
+
+  async availabilityCalendar({
+    token: {
+      apiKey = this.apiKey,
+      endpoint = this.endpoint,
+      octoEnv = this.octoEnv,
+      acceptLanguage = this.acceptLanguage,
+    },
+    token,
+    payload: {
+      productIds,
+      optionIds,
+      occupancies,
+      startDate,
+      // endDate,
+      dateFormat,
+    },
+  }) {
+    assert(this.jwtKey, 'JWT secret should be set');
+    assert(occupancies.length > 0, 'there should be at least one occupancy');
+    assert(
+      productIds.length === optionIds.length,
+      'mismatched productIds/options length',
+    );
+    assert(
+      optionIds.length === occupancies.length,
+      'mismatched options/occupancies length',
+    );
+    assert(productIds.every(Boolean), 'some invalid productId(s)');
+    assert(optionIds.every(Boolean), 'some invalid optionId(s)');
+    assert(occupancies.every(Boolean), 'some invalid occupacies(s)');
+    const localDateStart = moment(startDate, dateFormat).format('YYYY-MM-DD');
+    const localDateEnd = moment(startDate, dateFormat).format('YYYY-MM-DD');
+    // obtain the rates
+    const { quote } = await this.searchQuote({
+      token,
+      payload: {
+        productIds,
+        optionIds,
+        occupancies,
+      },
+    });
+    const rates = quote.map(q => q.map(({ rateId }) => rateId));
+    const headers = getHeaders({
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
+    });
+    const url = `${endpoint || this.endpoint}/availability/calendar`;
+    const availability = (
+      await Promise.map(rates, async (rate, rateIx) => {
+        const qtys = R.countBy(x => x)(rate);
+        const data = {
+          productId: productIds[rateIx],
+          optionId: optionIds[rateIx],
+          localDateStart,
+          localDateEnd,
+          units: Object.entries(qtys).map(([id, quantity]) => ({
+            id, quantity,
+          })),
+        };
+        return axios({
+          method: 'post',
+          url,
+          data,
+          headers,
+        });
+      }, { concurrency: CONCURRENCY })
+    ).map(({ data }) => data);
     return { availability };
   }
 
