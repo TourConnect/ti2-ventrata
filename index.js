@@ -14,15 +14,22 @@ const isNilOrEmptyArray = el => {
   return R.isNil(el) || R.isEmpty(el);
 };
 
-const doMap = (obj, map) => {
+const doMap = (obj, map, omitParam = []) => {
   const retVal = {};
+  const omit = [
+    ...omitParam,
+    ...Object.keys(map),
+  ];
   Object.entries(map).forEach(([attribute, fn]) => {
     const newVal = fn(obj);
     if (newVal !== undefined) {
       retVal[attribute] = newVal;
     }
   });
-  return retVal;
+  return {
+    ...retVal,
+    ...R.omit(omit, obj),
+  };
 };
 
 const doMapCurry = mapObj => item => doMap(item, mapObj);
@@ -30,10 +37,13 @@ const doMapCurry = mapObj => item => doMap(item, mapObj);
 const productMapIn = {
   productId: R.path(['id']),
   productName: R.path(['title']),
-  options: e => e.options.map(option => ({
-    optionId: R.path(['id'], option),
-    optionName: R.path(['title'], option),
-  })),
+  options: e => R.pathOr(undefined, ['options'], e).map(option => doMap(option, optionMapIn, ['id', 'title'])),
+};
+
+const optionMapIn = {
+  optionId: R.path(['id']),
+  optionName: R.path(['title']),
+  units: option => R.pathOr(undefined, ['units'], option).map(unit => doMap(unit, unitMap)),
 };
 
 const rateMap = {
@@ -67,12 +77,6 @@ const capitalize = sParam => {
   const s = sParam.replace(/_/g, ' ');
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
-
-// const optionMap = {
-//   optionId: R.path(['id']),
-//   optionName: R.path(['title']),
-//   units: option => R.pathOr(undefined, ['units'], option).map(unit => doMap(unit, unitMap)),
-// };
 
 const unitMap = {
   unitId: R.path(['id']),
@@ -199,7 +203,7 @@ class Plugin {
       headers,
     }));
     if (!Array.isArray(results)) results = [results];
-    let products = results.map(e => doMap(e, productMapIn));
+    let products = results.map(e => doMap(e, productMapIn, ['id', 'title']));
     // dynamic extra filtering
     if (!isNilOrEmpty(payload)) {
       const extraFilters = R.omit(['productId'], payload);
