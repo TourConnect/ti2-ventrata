@@ -10,13 +10,13 @@ const app = new Plugin({
   jwtKey: process.env.ti2_ventrata_jwtKey,
 });
 
-const rnd = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const rnd = arr => arr[Math.floor(Math.random() * arr.length)];
 
 describe('search tests', () => {
   let products;
   let testProduct = {
     productName: 'Pub Crawl Tour',
-  }
+  };
   const token = {
     apiKey: process.env.ti2_ventrata_apiKey,
     endpoint: process.env.ti2_ventrata_endpoint,
@@ -74,7 +74,7 @@ describe('search tests', () => {
         token,
         payload: {
           productId: testProduct.productId,
-        }
+        },
       });
       expect(Array.isArray(retVal.products)).toBeTruthy();
       expect(retVal.products).toHaveLength(1);
@@ -181,7 +181,7 @@ describe('search tests', () => {
             phoneNumber: faker.phone.phoneNumber(),
             emailAddress: `salvador+tests_${faker.lorem.slug()}@tourconnect.com`,
             country: faker.address.countryCode(),
-            locales:  ['en-US', 'en', 'es'],
+            locales: ['en-US', 'en', 'es'],
           },
           reference,
         },
@@ -189,9 +189,9 @@ describe('search tests', () => {
       expect(retVal.booking).toBeTruthy();
       ({ booking } = retVal);
       expect(booking).toBeTruthy();
-      expect(R.path(['id'], booking)).toBeTruthy()
-      expect(R.path(['supplierId'], booking)).toBeTruthy()
-      expect(R.path(['cancellable'], booking)).toBeTruthy()
+      expect(R.path(['id'], booking)).toBeTruthy();
+      expect(R.path(['supplierId'], booking)).toBeTruthy();
+      expect(R.path(['cancellable'], booking)).toBeTruthy();
       // console.log({ booking });
     });
     it('should be able to cancel the booking', async () => {
@@ -200,13 +200,13 @@ describe('search tests', () => {
         payload: {
           bookingId: booking.id,
           reason: faker.lorem.paragraph(),
-        }
+        },
       });
-      ({ cancellation } = retVal);
+      const { cancellation } = retVal;
       expect(cancellation).toBeTruthy();
       expect(cancellation).toBeTruthy();
-      expect(R.path(['id'], cancellation)).toBeTruthy()
-      expect(R.path(['cancellable'], cancellation)).toBeFalsy()
+      expect(R.path(['id'], cancellation)).toBeTruthy();
+      expect(R.path(['cancellable'], cancellation)).toBeFalsy();
     });
     let bookings = [];
     it('it should be able to search bookings by id', async () => {
@@ -214,33 +214,33 @@ describe('search tests', () => {
         token,
         payload: {
           bookingId: booking.id,
-        }
+        },
       });
       expect(Array.isArray(retVal.bookings)).toBeTruthy();
       ({ bookings } = retVal);
-      expect(R.path([0, 'id'], bookings)).toBeTruthy()
+      expect(R.path([0, 'id'], bookings)).toBeTruthy();
     });
     it('it should be able to search bookings by reference', async () => {
       const retVal = await app.searchBooking({
         token,
         payload: {
           bookingId: reference,
-        }
+        },
       });
       expect(Array.isArray(retVal.bookings)).toBeTruthy();
       ({ bookings } = retVal);
-      expect(R.path([0, 'id'], bookings)).toBeTruthy()
+      expect(R.path([0, 'id'], bookings)).toBeTruthy();
     });
     it('it should be able to search bookings by supplierId', async () => {
       const retVal = await app.searchBooking({
         token,
         payload: {
           bookingId: booking.supplierId,
-        }
+        },
       });
       expect(Array.isArray(retVal.bookings)).toBeTruthy();
       ({ bookings } = retVal);
-      expect(R.path([0, 'id'], bookings)).toBeTruthy()
+      expect(R.path([0, 'id'], bookings)).toBeTruthy();
     });
     it('it should be able to search bookings by travelDate', async () => {
       const retVal = await app.searchBooking({
@@ -249,11 +249,11 @@ describe('search tests', () => {
           travelDateStart: moment().add(6, 'M').format(dateFormat),
           travelDateEnd: moment().add(6, 'M').add(2, 'd').format(dateFormat),
           dateFormat,
-        }
+        },
       });
       expect(Array.isArray(retVal.bookings)).toBeTruthy();
       ({ bookings } = retVal);
-      expect(R.path([0, 'id'], bookings)).toBeTruthy()
+      expect(R.path([0, 'id'], bookings)).toBeTruthy();
     });
- });
+  });
 });
