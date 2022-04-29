@@ -210,7 +210,10 @@ class Plugin {
       if (Object.keys(extraFilters).length > 0) {
         products = products.filter(
           product => Object.entries(extraFilters).every(
-            ([key, value]) => wildcardMatch(value, product[key]),
+            ([key, value]) => {
+              if (typeof value === 'string') return wildcardMatch(value, product[key]);
+              return true;
+            },
           ),
         );
       }
@@ -276,7 +279,7 @@ class Plugin {
       optionIds,
       occupancies,
       startDate,
-      // endDate,
+      endDate,
       dateFormat,
     },
   }) {
@@ -294,7 +297,7 @@ class Plugin {
     assert(optionIds.every(Boolean), 'some invalid optionId(s)');
     assert(occupancies.every(Boolean), 'some invalid occupacies(s)');
     const localDateStart = moment(startDate, dateFormat).format('YYYY-MM-DD');
-    const localDateEnd = moment(startDate, dateFormat).format('YYYY-MM-DD');
+    const localDateEnd = moment(endDate, dateFormat).format('YYYY-MM-DD');
     // obtain the rates
     const { quote } = await this.searchQuote({
       token,
