@@ -37,6 +37,8 @@ const doMapCurry = mapObj => item => doMap(item, mapObj);
 const productMapIn = {
   productId: R.path(['id']),
   productName: R.path(['title']),
+  availableCurrencies: R.path(['availableCurrencies']),
+  defaultCurrency: R.path(['defaultCurrency']),
   options: e => R.pathOr(undefined, ['options'], e).map(option => doMap(option, optionMapIn, ['id', 'title'])),
 };
 
@@ -57,6 +59,7 @@ const availabilityMap = {
   dateTimeEnd: R.path(['localDateTimeEnd']),
   allDay: R.path(['allDay']),
   pricing: R.path(['pricing']),
+  unitPricing: R.path(['unitPricing']),
   offer: avail => (avail.offerCode ? doMap(avail, {
     offerId: R.path(['offerCode']),
     title: R.pathOr(undefined, ['offerTitle']),
@@ -81,8 +84,9 @@ const capitalize = sParam => {
 const unitMap = {
   unitId: R.path(['id']),
   unitName: R.path(['title']),
+  subtitle: R.path(['subtitle']),
   restrictions: R.path(['restrictions']),
-  pricing: R.path(['pricing']),
+  pricing: root => R.path(['pricing'], root) || R.path(['pricingFrom'], root),
 };
 
 const itineraryMap = {
@@ -103,11 +107,13 @@ const itineraryMap = {
 
 const unitItemMap = {
   unitItemId: R.path(['uuid']),
+  unitId: R.path(['unitId']),
+  unitName: R.path(['unit', 'title']),
   supplierId: R.path(['supplierReference']),
   status: e => capitalize(R.path(['status'], e)),
   contact: R.path(['contact']),
   pricing: R.path(['pricing']),
-  unit: unit => doMap(unit, unitMap),
+  unit: root => doMap(root.unit, unitMap),
 };
 
 const contactMapOut = {
@@ -123,11 +129,14 @@ const contactMapOut = {
 
 const bookingMap = {
   id: R.path(['id']),
+  orderId: R.path(['orderReference']),
+  bookingId: R.path(['supplierReference']),
   supplierId: R.path(['supplierReference']),
   status: e => capitalize(R.path(['status'], e)),
   productId: R.path(['product', 'id']),
   productName: R.path(['product', 'title']),
   optionId: R.path(['option', 'id']),
+  optionName: R.path(['option', 'title']),
   itinerary: ({ option: { itinerary } = {} }) =>
     (isNilOrEmptyArray(itinerary) ? undefined : itinerary.map(doMapCurry(itineraryMap))),
   duration: booking => doMap(booking, {
@@ -141,7 +150,7 @@ const bookingMap = {
   start: R.path(['availability', 'localDateTimeStart']),
   end: R.path(['availability', 'localDateTimeEnd']),
   allDay: R.path(['availability', 'allDay']),
-  bookingDate: R.path(['hotel', 'utcCreatedAt']),
+  bookingDate: R.path(['utcCreatedAt']),
   holder: booking => doMap(R.path(['contact'], booking), contactMapOut),
   telephone: R.pathOr(undefined, ['contact', 'phoneNumber']),
   notes: R.pathOr(undefined, ['notes']),
@@ -281,6 +290,7 @@ class Plugin {
       startDate,
       endDate,
       dateFormat,
+      currency,
     },
   }) {
     assert(this.jwtKey, 'JWT secret should be set');
@@ -323,6 +333,7 @@ class Plugin {
           optionId: optionIds[rateIx],
           localDateStart,
           localDateEnd,
+          currency,
           units: Object.entries(qtys).map(([id, quantity]) => ({
             id, quantity,
           })),
@@ -342,6 +353,7 @@ class Plugin {
             productId: productIds[availsIx],
             optionId: optionIds[availsIx],
             availabilityId: avail.id,
+            currency,
             unitItems: rates[availsIx].map(rate => ({ unitId: rate })),
           }), this.jwtKey),
           ...doMap(avail, availabilityMap),
