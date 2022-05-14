@@ -55,11 +55,11 @@ const rateMap = {
 };
 
 const availabilityMap = {
-  dateTimeStart: R.path(['localDateTimeStart']),
-  dateTimeEnd: R.path(['localDateTimeEnd']),
+  dateTimeStart: root => R.path(['localDateTimeStart'], root) || R.path(['localDate'], root),
+  dateTimeEnd: root => R.path(['localDateTimeEnd']) || R.path(['localDate'], root),
   allDay: R.path(['allDay']),
-  pricing: R.path(['pricing']),
-  unitPricing: R.path(['unitPricing']),
+  pricing: root => R.path(['pricing'], root) || R.path(['pricingFrom'], root),
+  unitPricing: root => R.path(['unitPricing'], root) || R.path(['unitPricingFrom'], root),
   offer: avail => (avail.offerCode ? doMap(avail, {
     offerId: R.path(['offerCode']),
     title: R.pathOr(undefined, ['offerTitle']),
@@ -379,7 +379,8 @@ class Plugin {
       optionIds,
       occupancies,
       startDate,
-      // endDate,
+      endDate,
+      currency,
       dateFormat,
     },
   }) {
@@ -397,7 +398,7 @@ class Plugin {
     assert(optionIds.every(Boolean), 'some invalid optionId(s)');
     assert(occupancies.every(Boolean), 'some invalid occupacies(s)');
     const localDateStart = moment(startDate, dateFormat).format('YYYY-MM-DD');
-    const localDateEnd = moment(startDate, dateFormat).format('YYYY-MM-DD');
+    const localDateEnd = moment(endDate, dateFormat).format('YYYY-MM-DD');
     // obtain the rates
     const { quote } = await this.searchQuote({
       token,
@@ -415,7 +416,7 @@ class Plugin {
       acceptLanguage,
     });
     const url = `${endpoint || this.endpoint}/availability/calendar`;
-    const availability = (
+    let availability = (
       await Promise.map(rates, async (rate, rateIx) => {
         const qtys = R.countBy(x => x)(rate);
         const data = {
@@ -423,6 +424,7 @@ class Plugin {
           optionId: optionIds[rateIx],
           localDateStart,
           localDateEnd,
+          currency,
           units: Object.entries(qtys).map(([id, quantity]) => ({
             id, quantity,
           })),
@@ -435,6 +437,11 @@ class Plugin {
         });
       }, { concurrency: CONCURRENCY })
     ).map(({ data }) => data);
+    availability = availability.map(
+      (avails, availsIx) => (avails.map(
+        avail => doMap(avail, availabilityMap),
+      )),
+    );
     return { availability };
   }
 
