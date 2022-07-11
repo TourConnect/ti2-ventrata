@@ -459,38 +459,43 @@ class Plugin {
       holder,
     },
   }) {
-    assert(availabilityKey, 'an availability code is required !');
-    assert(R.path(['name'], holder), 'a holder\' first name is required');
-    assert(R.path(['surname'], holder), 'a holder\' surname is required');
-    assert(R.path(['emailAddress'], holder), 'a holder\' email address is required');
-    const headers = getHeaders({
-      apiKey,
-      endpoint,
-      octoEnv,
-      acceptLanguage,
-    });
-    let url = `${endpoint || this.endpoint}/bookings`;
-    let data = await jwt.verify(availabilityKey, this.jwtKey);
-    let booking = R.path(['data'], await axios({
-      method: 'post',
-      url,
-      data: { ...data, notes },
-      headers,
-    }));
-    url = `${endpoint || this.endpoint}/bookings/${booking.uuid}/confirm`;
-    const contact = doMap(holder, contactMap);
-    data = {
-      notes,
-      contact,
-      resellerReference: reference,
-    };
-    booking = R.path(['data'], await axios({
-      method: 'post',
-      url,
-      data,
-      headers,
-    }));
-    return ({ booking: doMap(booking, bookingMap) });
+    try {
+      assert(availabilityKey, 'an availability code is required !');
+      assert(R.path(['name'], holder), 'a holder\' first name is required');
+      assert(R.path(['surname'], holder), 'a holder\' surname is required');
+      assert(R.path(['emailAddress'], holder), 'a holder\' email address is required');
+      const headers = getHeaders({
+        apiKey,
+        endpoint,
+        octoEnv,
+        acceptLanguage,
+      });
+      let url = `${endpoint || this.endpoint}/bookings`;
+      let data = await jwt.verify(availabilityKey, this.jwtKey);
+      let booking = R.path(['data'], await axios({
+        method: 'post',
+        url,
+        data: { ...data, notes },
+        headers,
+      }));
+      url = `${endpoint || this.endpoint}/bookings/${booking.uuid}/confirm`;
+      const contact = doMap(holder, contactMap);
+      data = {
+        notes,
+        contact,
+        resellerReference: reference,
+      };
+      booking = R.path(['data'], await axios({
+        method: 'post',
+        url,
+        data,
+        headers,
+      }));
+      return ({ booking: doMap(booking, bookingMap) });
+    } catch (err) {
+      console.log('createBooking-ventrata', err);
+      throw Error(err);
+    }
   }
 
   async cancelBooking({
