@@ -54,12 +54,26 @@ const rateMap = {
   pricing: R.path(['pricingFrom']),
 };
 
+const unitPricingMap = {
+  unitId: R.prop('unitId'),
+  original: R.prop('original'),
+  retail: R.prop('retail'),
+  net: R.prop('net'),
+  currencyPrecision: R.prop('currencyPrecision'),
+};
+
 const availabilityMap = {
   dateTimeStart: root => R.path(['localDateTimeStart'], root) || R.path(['localDate'], root),
-  dateTimeEnd: root => R.path(['localDateTimeEnd']) || R.path(['localDate'], root),
+  dateTimeEnd: root => R.path(['localDateTimeEnd'], root) || R.path(['localDate'], root),
   allDay: R.path(['allDay']),
   pricing: root => R.path(['pricing'], root) || R.path(['pricingFrom'], root),
-  unitPricing: root => R.path(['unitPricing'], root) || R.path(['unitPricingFrom'], root),
+  unitPricing: root => {
+    let before = [];
+    if (R.path(['unitPricing'], root)) before = R.path(['unitPricing'], root);
+    else before = R.path(['unitPricingFrom'], root) || [];
+    return before.map(item => doMap(item, unitPricingMap));
+  },
+  vacancies: R.prop('vacancies'),
   offer: avail => (avail.offerCode ? doMap(avail, {
     offerId: R.path(['offerCode']),
     title: R.pathOr(undefined, ['offerTitle']),
@@ -109,7 +123,7 @@ const unitItemMap = {
   unitItemId: R.path(['uuid']),
   unitId: R.path(['unitId']),
   unitName: R.path(['unit', 'title']),
-  supplierId: R.path(['supplierReference']),
+  supplierBookingId: R.path(['supplierReference']),
   status: e => capitalize(R.path(['status'], e)),
   contact: R.path(['contact']),
   pricing: R.path(['pricing']),
@@ -131,7 +145,7 @@ const bookingMap = {
   id: R.path(['id']),
   orderId: R.path(['orderReference']),
   bookingId: R.path(['supplierReference']),
-  supplierId: R.path(['supplierReference']),
+  supplierBookingId: R.path(['supplierReference']),
   status: e => capitalize(R.path(['status'], e)),
   productId: R.path(['product', 'id']),
   productName: R.path(['product', 'title']),
@@ -533,7 +547,7 @@ class Plugin {
     payload: {
       bookingId,
       resellerReference,
-      supplierId,
+      supplierBookingId,
       travelDateStart,
       travelDateEnd,
       dateFormat,
@@ -542,7 +556,7 @@ class Plugin {
     assert(
       !isNilOrEmpty(bookingId)
       || !isNilOrEmpty(resellerReference)
-      || !isNilOrEmpty(supplierId)
+      || !isNilOrEmpty(supplierBookingId)
       || !(
         isNilOrEmpty(travelDateStart) && isNilOrEmpty(travelDateEnd) && isNilOrEmpty(dateFormat)
       ),
@@ -582,8 +596,8 @@ class Plugin {
           headers,
         }));
       }
-      if (!isNilOrEmpty(supplierId)) {
-        url = `${endpoint || this.endpoint}/bookings?supplierReference=${supplierId}`;
+      if (!isNilOrEmpty(supplierBookingId)) {
+        url = `${endpoint || this.endpoint}/bookings?supplierReference=${supplierBookingId}`;
         return R.path(['data'], await axios({
           method: 'get',
           url,

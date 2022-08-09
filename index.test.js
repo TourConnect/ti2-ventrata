@@ -190,7 +190,7 @@ describe('search tests', () => {
       ({ booking } = retVal);
       expect(booking).toBeTruthy();
       expect(R.path(['id'], booking)).toBeTruthy();
-      expect(R.path(['supplierId'], booking)).toBeTruthy();
+      expect(R.path(['supplierBookingId'], booking)).toBeTruthy();
       expect(R.path(['cancellable'], booking)).toBeTruthy();
       // console.log({ booking });
     });
@@ -231,11 +231,11 @@ describe('search tests', () => {
       ({ bookings } = retVal);
       expect(R.path([0, 'id'], bookings)).toBeTruthy();
     });
-    it('it should be able to search bookings by supplierId', async () => {
+    it('it should be able to search bookings by supplierBookingId', async () => {
       const retVal = await app.searchBooking({
         token,
         payload: {
-          bookingId: booking.supplierId,
+          bookingId: booking.supplierBookingId,
         },
       });
       expect(Array.isArray(retVal.bookings)).toBeTruthy();
