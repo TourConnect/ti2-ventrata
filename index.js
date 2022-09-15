@@ -189,12 +189,17 @@ const contactMap = {
   country: R.path(['country']),
 };
 
-const getHeaders = ({ apiKey, acceptLanguage, octoEnv }) => ({
+const getHeaders = ({
+  apiKey,
+  acceptLanguage,
+  octoEnv,
+  referrer,
+}) => ({
   Authorization: `Bearer ${apiKey}`,
   'Octo-Env': octoEnv,
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
-  // Referer: 'ventrata.com',
+  ...referrer ? { Referer: referrer } : {},
 });
 
 class Plugin {
@@ -473,9 +478,10 @@ class Plugin {
     },
     payload: {
       availabilityKey,
+      holder,
       notes,
       reference,
-      holder,
+      referrer,
     },
   }) {
     assert(availabilityKey, 'an availability code is required !');
@@ -487,6 +493,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      referrer,
     });
     let url = `${endpoint || this.endpoint}/bookings`;
     let data = await jwt.verify(availabilityKey, this.jwtKey);
