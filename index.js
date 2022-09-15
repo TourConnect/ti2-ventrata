@@ -1,4 +1,5 @@
 const axios = require('axios');
+const curlirize = require('axios-curlirize');
 const R = require('ramda');
 const Promise = require('bluebird');
 const assert = require('assert');
@@ -7,6 +8,9 @@ const jwt = require('jsonwebtoken');
 const wildcardMatch = require('./utils/wildcardMatch');
 
 const CONCURRENCY = 3; // is this ok ?
+if (process.env.debug) {
+  curlirize(axios);
+}
 
 const isNilOrEmpty = R.either(R.isNil, R.isEmpty);
 const isNilOrEmptyArray = el => {
@@ -190,6 +194,7 @@ const getHeaders = ({ apiKey, acceptLanguage, octoEnv }) => ({
   'Octo-Env': octoEnv,
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
+  // Referer: 'ventrata.com',
 });
 
 class Plugin {
