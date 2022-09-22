@@ -175,6 +175,7 @@ describe('search tests', () => {
         payload: {
           availabilityKey,
           notes: faker.lorem.paragraph(),
+          settlementMethod: 'DEFERRED',
           holder: {
             name: fullName[0],
             surname: fullName[1],
@@ -254,6 +255,33 @@ describe('search tests', () => {
       expect(Array.isArray(retVal.bookings)).toBeTruthy();
       ({ bookings } = retVal);
       expect(R.path([0, 'id'], bookings)).toBeTruthy();
+    });
+    it('should be able to create a booking for a referrer', async () => {
+      const fullName = faker.name.findName().split(' ');
+      const retVal = await app.createBooking({
+        token,
+        payload: {
+          availabilityKey,
+          notes: faker.lorem.paragraph(),
+          holder: {
+            name: fullName[0],
+            surname: fullName[1],
+            phoneNumber: faker.phone.phoneNumber(),
+            emailAddress: `salvador+tests_${faker.lorem.slug()}@tourconnect.com`,
+            country: faker.address.countryCode(),
+            locales: ['en-US', 'en', 'es'],
+          },
+          reference,
+          referrer: 'referrerforapitest',
+          settlementMethod: 'DEFERRED',
+        },
+      });
+      expect(retVal.booking).toBeTruthy();
+      ({ booking } = retVal);
+      expect(booking).toBeTruthy();
+      expect(R.path(['id'], booking)).toBeTruthy();
+      expect(R.path(['supplierBookingId'], booking)).toBeTruthy();
+      expect(R.path(['cancellable'], booking)).toBeTruthy();
     });
   });
 });

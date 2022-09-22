@@ -1,4 +1,5 @@
 const axios = require('axios');
+const curlirize = require('axios-curlirize');
 const R = require('ramda');
 const Promise = require('bluebird');
 const assert = require('assert');
@@ -7,6 +8,9 @@ const jwt = require('jsonwebtoken');
 const wildcardMatch = require('./utils/wildcardMatch');
 
 const CONCURRENCY = 3; // is this ok ?
+if (process.env.debug) {
+  curlirize(axios);
+}
 
 const isNilOrEmpty = R.either(R.isNil, R.isEmpty);
 const isNilOrEmptyArray = el => {
@@ -185,11 +189,17 @@ const contactMap = {
   country: R.path(['country']),
 };
 
-const getHeaders = ({ apiKey, acceptLanguage, octoEnv }) => ({
+const getHeaders = ({
+  apiKey,
+  acceptLanguage,
+  octoEnv,
+  referrer,
+}) => ({
   Authorization: `Bearer ${apiKey}`,
   'Octo-Env': octoEnv,
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
+  ...referrer ? { Referer: referrer } : {},
 });
 
 class Plugin {
@@ -468,9 +478,11 @@ class Plugin {
     },
     payload: {
       availabilityKey,
+      holder,
       notes,
       reference,
-      holder,
+      referrer,
+      settlementMethod,
     },
   }) {
     assert(availabilityKey, 'an availability code is required !');
@@ -482,21 +494,27 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      referrer,
     });
     let url = `${endpoint || this.endpoint}/bookings`;
     let data = await jwt.verify(availabilityKey, this.jwtKey);
     let booking = R.path(['data'], await axios({
       method: 'post',
       url,
-      data: { ...data, notes },
+      data: {
+        settlementMethod,
+        ...data,
+        notes,
+      },
       headers,
     }));
     url = `${endpoint || this.endpoint}/bookings/${booking.uuid}/confirm`;
     const contact = doMap(holder, contactMap);
     data = {
-      notes,
       contact,
+      notes,
       resellerReference: reference,
+      settlementMethod,
     };
     booking = R.path(['data'], await axios({
       method: 'post',
