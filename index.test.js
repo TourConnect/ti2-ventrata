@@ -175,6 +175,7 @@ describe('search tests', () => {
         payload: {
           availabilityKey,
           notes: faker.lorem.paragraph(),
+          settlementMethod: 'DEFERRED',
           holder: {
             name: fullName[0],
             surname: fullName[1],
@@ -271,7 +272,8 @@ describe('search tests', () => {
             locales: ['en-US', 'en', 'es'],
           },
           reference,
-          referrer: 'ventrata.com',
+          referrer: 'referrerforapitest',
+          settlementMethod: 'DEFERRED',
         },
       });
       expect(retVal.booking).toBeTruthy();
@@ -280,7 +282,6 @@ describe('search tests', () => {
       expect(R.path(['id'], booking)).toBeTruthy();
       expect(R.path(['supplierBookingId'], booking)).toBeTruthy();
       expect(R.path(['cancellable'], booking)).toBeTruthy();
-      // console.log({ booking });
     });
   });
 });

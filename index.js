@@ -482,6 +482,7 @@ class Plugin {
       notes,
       reference,
       referrer,
+      settlementMethod,
     },
   }) {
     assert(availabilityKey, 'an availability code is required !');
@@ -500,15 +501,20 @@ class Plugin {
     let booking = R.path(['data'], await axios({
       method: 'post',
       url,
-      data: { ...data, notes },
+      data: {
+        settlementMethod,
+        ...data,
+        notes,
+      },
       headers,
     }));
     url = `${endpoint || this.endpoint}/bookings/${booking.uuid}/confirm`;
     const contact = doMap(holder, contactMap);
     data = {
-      notes,
       contact,
+      notes,
       resellerReference: reference,
+      settlementMethod,
     };
     booking = R.path(['data'], await axios({
       method: 'post',
