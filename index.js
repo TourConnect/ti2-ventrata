@@ -196,7 +196,7 @@ const getHeaders = ({
   referrer,
 }) => ({
   Authorization: `Bearer ${apiKey}`,
-  'Octo-Env': octoEnv,
+  ...octoEnv ? { 'Octo-Env': octoEnv } : {},
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
   ...referrer ? { Referer: referrer } : {},
@@ -209,12 +209,39 @@ class Plugin {
     });
   }
 
+  async validateToken({
+    token: {
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
+    },
+  }) {
+    const url = `${endpoint || this.endpoint}/supplier`;
+    const headers = getHeaders({
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
+    });
+    try {
+      const results = R.path(['data', 'destinations'], await axios({
+        method: 'get',
+        url,
+        headers,
+      }));
+      return Array.isArray(results);
+    } catch (err) {
+      return false;
+    }
+  }
+
   async searchProducts({
     token: {
-      apiKey = this.apiKey,
-      endpoint = this.endpoint,
-      octoEnv = this.octoEnv,
-      acceptLanguage = this.acceptLanguage,
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
     },
     payload,
   }) {
@@ -256,10 +283,10 @@ class Plugin {
 
   async searchQuote({
     token: {
-      apiKey = this.apiKey,
-      endpoint = this.endpoint,
-      octoEnv = this.octoEnv,
-      acceptLanguage = this.acceptLanguage,
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
     },
     payload: {
       productIds,
@@ -301,10 +328,10 @@ class Plugin {
 
   async searchAvailability({
     token: {
-      apiKey = this.apiKey,
-      endpoint = this.endpoint,
-      octoEnv = this.octoEnv,
-      acceptLanguage = this.acceptLanguage,
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
     },
     token,
     payload: {
@@ -392,10 +419,10 @@ class Plugin {
 
   async availabilityCalendar({
     token: {
-      apiKey = this.apiKey,
-      endpoint = this.endpoint,
-      octoEnv = this.octoEnv,
-      acceptLanguage = this.acceptLanguage,
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
     },
     token,
     payload: {
@@ -471,10 +498,10 @@ class Plugin {
 
   async createBooking({
     token: {
-      apiKey = this.apiKey,
-      endpoint = this.endpoint,
-      octoEnv = this.octoEnv,
-      acceptLanguage = this.acceptLanguage,
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
     },
     payload: {
       availabilityKey,
@@ -527,10 +554,10 @@ class Plugin {
 
   async cancelBooking({
     token: {
-      apiKey = this.apiKey,
-      endpoint = this.endpoint,
-      octoEnv = this.octoEnv,
-      acceptLanguage = this.acceptLanguage,
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
     },
     payload: {
       bookingId,
@@ -557,10 +584,10 @@ class Plugin {
 
   async searchBooking({
     token: {
-      apiKey = this.apiKey,
-      endpoint = this.endpoint,
-      octoEnv = this.octoEnv,
-      acceptLanguage = this.acceptLanguage,
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
     },
     payload: {
       bookingId,
