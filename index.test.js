@@ -53,11 +53,19 @@ describe('search tests', () => {
       });
       it.todo('family + one');
     });
-    it('validateToken', async () => {
-      const retVal = await app.validateToken({
-        token,
+    describe('validateToken', () => {
+      it('valid token', async () => {
+        const retVal = await app.validateToken({
+          token,
+        });
+        expect(retVal).toBeTruthy();
       });
-      expect(retVal).toBeTruthy();
+      it('invalid token', async () => {
+        const retVal = await app.validateToken({
+          token: { someRandom: 'thing' },
+        });
+        expect(retVal).toBeFalsy();
+      });
     });
   });
   describe('booking process', () => {
