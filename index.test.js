@@ -53,6 +53,12 @@ describe('search tests', () => {
       });
       it.todo('family + one');
     });
+    it('validateToken', async () => {
+      const retVal = await app.validateToken({
+        token,
+      });
+      expect(retVal).toBeTruthy();
+    });
   });
   describe('booking process', () => {
     it('get for all products, a test product should exist', async () => {

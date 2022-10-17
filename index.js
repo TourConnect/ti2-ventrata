@@ -209,6 +209,29 @@ class Plugin {
     });
   }
 
+  async validateToken({
+    token: {
+      apiKey = this.apiKey,
+      endpoint = this.endpoint,
+      octoEnv = this.octoEnv,
+      acceptLanguage = this.acceptLanguage,
+    },
+  }) {
+    const url = `${endpoint || this.endpoint}/supplier`;
+    const headers = getHeaders({
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
+    });
+    const results = R.path(['data', 'destinations'], await axios({
+      method: 'get',
+      url,
+      headers,
+    }));
+    return Array.isArray(results);
+  }
+
   async searchProducts({
     token: {
       apiKey = this.apiKey,
