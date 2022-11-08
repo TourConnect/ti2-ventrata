@@ -207,6 +207,15 @@ class Plugin {
     Object.entries(params).forEach(([attr, value]) => {
       this[attr] = value;
     });
+    this.capabilities = () => ({
+      searchAvailability: {
+        units: true, // either units or occupancy
+        // occupancy: true,
+      },
+      searchBooking: {
+        bookingId: true,
+      },
+    });
     this.tokenTemplate = () => ({
       apiKey: {
         type: 'text',
@@ -318,9 +327,10 @@ class Plugin {
       productIds,
       optionIds,
       occupancies,
+      units,
     },
   }) {
-    assert(occupancies.length > 0, 'there should be at least one occupancy');
+    assert(occupancies.length < 1 && units.length < 1, 'there should be at least one occupancy or unit');
     assert(productIds.length === optionIds.length, 'mismatched product/option combinations');
     assert(productIds.length === occupancies.length, 'mismatched product/occupancies combinations');
     assert(productIds.every(Boolean), 'some invalid productId(s)');
@@ -364,6 +374,7 @@ class Plugin {
       productIds,
       optionIds,
       occupancies,
+      units,
       startDate,
       endDate,
       dateFormat,
@@ -371,7 +382,7 @@ class Plugin {
     },
   }) {
     assert(this.jwtKey, 'JWT secret should be set');
-    assert(occupancies.length > 0, 'there should be at least one occupancy');
+    assert(units.length < 1, 'there should be at least one unit type');
     assert(
       productIds.length === optionIds.length,
       'mismatched productIds/options length',
@@ -392,6 +403,7 @@ class Plugin {
         productIds,
         optionIds,
         occupancies,
+        units,
       },
     });
     const rates = quote.map(q => q.map(({ rateId }) => rateId));
@@ -459,6 +471,7 @@ class Plugin {
       endDate,
       currency,
       dateFormat,
+      units,
     },
   }) {
     assert(this.jwtKey, 'JWT secret should be set');
@@ -483,6 +496,7 @@ class Plugin {
         productIds,
         optionIds,
         occupancies,
+        units,
       },
     });
     const rates = quote.map(q => q.map(({ rateId }) => rateId));
