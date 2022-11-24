@@ -239,24 +239,19 @@ class Plugin {
     token: {
       apiKey,
       endpoint,
-      octoEnv,
-      acceptLanguage,
     },
   }) {
-    const url = `${endpoint || this.endpoint}/supplier`;
+    const url = `${endpoint || this.endpoint}/whoami?token=${apiKey}`;
     const headers = getHeaders({
       apiKey,
-      endpoint,
-      octoEnv,
-      acceptLanguage,
     });
     try {
-      const results = R.path(['data', 'destinations'], await axios({
+      const connectionId = R.path(['data', 'connection', 'id'], await axios({
         method: 'get',
         url,
         headers,
       }));
-      return Array.isArray(results);
+      return /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/.test(connectionId);
     } catch (err) {
       return false;
     }
