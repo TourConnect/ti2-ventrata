@@ -102,6 +102,7 @@ const capitalize = sParam => {
 const unitMap = {
   unitId: R.path(['id']),
   unitName: R.path(['title']),
+  type: R.path(['type']),
   subtitle: R.path(['subtitle']),
   restrictions: R.path(['restrictions']),
   pricing: root => R.path(['pricing'], root) || R.path(['pricingFrom'], root),
@@ -193,13 +194,13 @@ const getHeaders = ({
   apiKey,
   acceptLanguage,
   octoEnv,
-  referrer,
+  resellerId,
 }) => ({
   Authorization: `Bearer ${apiKey}`,
   ...octoEnv ? { 'Octo-Env': octoEnv } : {},
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
-  ...referrer ? { Referer: referrer } : {},
+  ...resellerId ? { Referer: resellerId } : {},
 });
 
 class Plugin {
@@ -212,6 +213,11 @@ class Plugin {
         type: 'text',
         regExp: /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
         description: 'the Api Key provided from Ventrata, should be in uuid format',
+      },
+      resellerId: {
+        type: 'text',
+        regExp: /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
+        description: 'the Reseller Id provided from Ventrata, should be in uuid format',
       },
       endpoint: {
         type: 'text',
@@ -241,6 +247,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     },
   }) {
     const url = `${endpoint || this.endpoint}/supplier`;
@@ -249,6 +256,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     });
     try {
       const results = R.path(['data', 'destinations'], await axios({
@@ -268,6 +276,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     },
     payload,
   }) {
@@ -282,6 +291,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     });
     let results = R.pathOr([], ['data'], await axios({
       method: 'get',
@@ -313,6 +323,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     },
     payload: {
       productIds,
@@ -333,6 +344,7 @@ class Plugin {
         endpoint,
         octoEnv,
         acceptLanguage,
+        resellerId,
       });
       const url = `${endpoint || this.endpoint}/products/${productId}`;
       return axios({
@@ -358,6 +370,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     },
     token,
     payload: {
@@ -400,6 +413,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     });
     const url = `${endpoint || this.endpoint}/availability`;
     let availability = (
@@ -449,6 +463,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     },
     token,
     payload: {
@@ -491,6 +506,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     });
     const url = `${endpoint || this.endpoint}/availability/calendar`;
     let availability = (
@@ -528,13 +544,13 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     },
     payload: {
       availabilityKey,
       holder,
       notes,
       reference,
-      referrer,
       settlementMethod,
     },
   }) {
@@ -547,7 +563,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
-      referrer,
+      resellerId,
     });
     let url = `${endpoint || this.endpoint}/bookings`;
     let data = await jwt.verify(availabilityKey, this.jwtKey);
@@ -584,6 +600,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     },
     payload: {
       bookingId,
@@ -597,6 +614,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     });
     const url = `${endpoint || this.endpoint}/bookings/${bookingId || id}`;
     const booking = R.path(['data'], await axios({
@@ -614,6 +632,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     },
     payload: {
       bookingId,
@@ -638,6 +657,7 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
+      resellerId,
     });
     const searchByUrl = async url => {
       try {
