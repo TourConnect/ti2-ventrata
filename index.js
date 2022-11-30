@@ -40,7 +40,7 @@ const doMapCurry = mapObj => item => doMap(item, mapObj);
 
 const productMapIn = {
   productId: R.path(['id']),
-  productName: R.path(['title']),
+  productName: o => R.path(['title'], o) || R.prop('internalName', o),
   availableCurrencies: R.path(['availableCurrencies']),
   defaultCurrency: R.path(['defaultCurrency']),
   options: e => R.pathOr(undefined, ['options'], e).map(option => doMap(option, optionMapIn, ['id', 'title'])),
@@ -48,7 +48,7 @@ const productMapIn = {
 
 const optionMapIn = {
   optionId: R.path(['id']),
-  optionName: R.path(['title']),
+  optionName: o => R.path(['title'], o) || R.prop('internalName', o),
   units: option => R.pathOr(undefined, ['units'], option).map(unit => doMap(unit, unitMap)),
 };
 
@@ -101,7 +101,7 @@ const capitalize = sParam => {
 
 const unitMap = {
   unitId: R.path(['id']),
-  unitName: R.path(['title']),
+  unitName: o => R.path(['title'], o) || R.prop('internalName', o),
   type: R.path(['type']),
   subtitle: R.path(['subtitle']),
   restrictions: R.path(['restrictions']),
