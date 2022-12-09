@@ -201,6 +201,7 @@ const getHeaders = ({
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
   ...resellerId ? { Referer: resellerId } : {},
+  'Octo-Capabilities': 'octo/pricing',
 });
 
 class Plugin {
@@ -555,9 +556,8 @@ class Plugin {
     },
   }) {
     assert(availabilityKey, 'an availability code is required !');
-    assert(R.path(['name'], holder), 'a holder\' first name is required');
-    assert(R.path(['surname'], holder), 'a holder\' surname is required');
-    assert(R.path(['emailAddress'], holder), 'a holder\' email address is required');
+    assert(R.path(['name'], holder), 'first name is required');
+    assert(R.path(['surname'], holder), 'surname is required');
     const headers = getHeaders({
       apiKey,
       endpoint,

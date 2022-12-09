@@ -15,7 +15,7 @@ const rnd = arr => arr[Math.floor(Math.random() * arr.length)];
 describe('search tests', () => {
   let products;
   let testProduct = {
-    productName: 'Pub Crawl Tour',
+    productName: 'Edinburgh Pub Crawl Tour',
   };
   const token = {
     apiKey: process.env.ti2_ventrata_apiKey,
@@ -106,6 +106,7 @@ describe('search tests', () => {
       });
       expect(Array.isArray(retVal.products)).toBeTruthy();
       // console.log(retVal.products.filter(({ productName }) => productName === testProduct.productName));
+      // console.log(retVal.products.map(p => p.productName))
       expect(retVal.products).toContainObject([{
         productName: testProduct.productName,
       }]);
