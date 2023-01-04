@@ -30,8 +30,8 @@ const resolvers = {
     vacancies: R.prop('vacancies'),
     available: root => root.status !== 'SOLD_OUT',
     // get the starting price
-    pricing: R.prop('pricingFrom'),
-    unitPricing: R.prop('unitPricingFrom'),
+    pricing: root => R.prop('pricingFrom', root) || R.prop('pricing', root),
+    unitPricing: root => R.prop('unitPricingFrom', root) || R.prop('unitPricing', root),
     pickupAvailable: R.prop('pickupAvailable'),
     pickupRequired: R.prop('pickupRequired'),
     pickupPoints: root => R.pathOr([], ['pickupPoints'], root)

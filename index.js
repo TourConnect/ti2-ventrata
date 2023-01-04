@@ -35,8 +35,8 @@ const getHeaders = ({
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
   ...resellerId ? { Referer: resellerId } : {},
-  // 'Octo-Capabilities': 'octo/pricing,octo/pickups',
-  'Octo-Capabilities': 'octo/pricing',
+  'Octo-Capabilities': 'octo/pricing,octo/pickups',
+  // 'Octo-Capabilities': 'octo/pricing',
 });
 
 class Plugin {
@@ -342,6 +342,7 @@ class Plugin {
       notes,
       reference,
       settlementMethod,
+      pickupPoint,
     },
     typeDefsAndQueries: {
       bookingTypeDefs,
@@ -366,6 +367,7 @@ class Plugin {
         settlementMethod,
         ...dataForCreateBooking,
         notes,
+        ...(pickupPoint ? { pickupRequested: true, pickupPointId: pickupPoint } : {}),
       },
       headers,
     }));
