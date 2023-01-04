@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axiosRaw = require('axios');
 const curlirize = require('axios-curlirize');
 const R = require('ramda');
 const Promise = require('bluebird');
@@ -6,189 +6,23 @@ const assert = require('assert');
 const moment = require('moment');
 const jwt = require('jsonwebtoken');
 const wildcardMatch = require('./utils/wildcardMatch');
+const { translateProduct } = require('./resolvers/product');
+const { translateAvailability } = require('./resolvers/availability');
+const { translateBooking } = require('./resolvers/booking');
 
 const CONCURRENCY = 3; // is this ok ?
 if (process.env.debug) {
-  curlirize(axios);
+  curlirize(axiosRaw);
 }
 
-const isNilOrEmpty = R.either(R.isNil, R.isEmpty);
-const isNilOrEmptyArray = el => {
-  if (!Array.isArray(el)) return true;
-  return R.isNil(el) || R.isEmpty(el);
-};
-
-const doMap = (obj, map, omitParam = []) => {
-  const retVal = {};
-  const omit = [
-    ...omitParam,
-    ...Object.keys(map),
-  ];
-  Object.entries(map).forEach(([attribute, fn]) => {
-    const newVal = fn(obj);
-    if (newVal !== undefined) {
-      retVal[attribute] = newVal;
-    }
+const axios = async (...args) => axiosRaw(...args)
+  .catch(err => {
+    const errMsg = R.path(['response', 'data', 'errorMessage'], err);
+    console.log('error in ti2-ventrata', args[0], errMsg);
+    if (errMsg) throw new Error(errMsg);
+    throw err;
   });
-  return {
-    ...retVal,
-    ...R.omit(omit, obj),
-  };
-};
-
-const doMapCurry = mapObj => item => doMap(item, mapObj);
-
-const productMapIn = {
-  productId: R.path(['id']),
-  productName: o => R.path(['title'], o) || R.prop('internalName', o),
-  availableCurrencies: R.path(['availableCurrencies']),
-  defaultCurrency: R.path(['defaultCurrency']),
-  options: e => R.pathOr(undefined, ['options'], e).map(option => doMap(option, optionMapIn, ['id', 'title'])),
-};
-
-const optionMapIn = {
-  optionId: R.path(['id']),
-  optionName: o => R.path(['title'], o) || R.prop('internalName', o),
-  units: option => R.pathOr(undefined, ['units'], option).map(unit => doMap(unit, unitMap)),
-};
-
-const rateMap = {
-  rateId: R.path(['id']),
-  rateName: rateName => R.toLower(R.path(['internalName'], rateName)),
-  pricing: R.path(['pricingFrom']),
-};
-
-const unitPricingMap = {
-  unitId: R.prop('unitId'),
-  original: R.prop('original'),
-  retail: R.prop('retail'),
-  net: R.prop('net'),
-  currencyPrecision: R.prop('currencyPrecision'),
-};
-
-const availabilityMap = {
-  dateTimeStart: root => R.path(['localDateTimeStart'], root) || R.path(['localDate'], root),
-  dateTimeEnd: root => R.path(['localDateTimeEnd'], root) || R.path(['localDate'], root),
-  allDay: R.path(['allDay']),
-  pricing: root => R.path(['pricing'], root) || R.path(['pricingFrom'], root),
-  unitPricing: root => {
-    let before = [];
-    if (R.path(['unitPricing'], root)) before = R.path(['unitPricing'], root);
-    else before = R.path(['unitPricingFrom'], root) || [];
-    return before.map(item => doMap(item, unitPricingMap));
-  },
-  vacancies: R.prop('vacancies'),
-  offer: avail => (avail.offerCode ? doMap(avail, {
-    offerId: R.path(['offerCode']),
-    title: R.pathOr(undefined, ['offerTitle']),
-    description: R.pathOr(undefined, ['offer', 'description']),
-  }) : undefined),
-  meetingPoint: avail => (avail.meetingPoint ? doMap(avail, {
-    description: R.pathOr(undefined, ['meetingPoint']),
-    dateTime: R.pathOr(undefined, ['meetingLocalDateTime']),
-    coordinates: () => ((avail.meetingPointLatitude
-      && avail.meetingPointLongitude) ? doMap(avail, {
-        lat: R.path(['meetingPointLatitude']),
-        long: R.path(['meetingPointLongitude']),
-      }) : undefined),
-  }) : undefined),
-};
-const capitalize = sParam => {
-  if (typeof sParam !== 'string') return '';
-  const s = sParam.replace(/_/g, ' ');
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-};
-
-const unitMap = {
-  unitId: R.path(['id']),
-  unitName: o => R.path(['title'], o) || R.prop('internalName', o),
-  type: R.path(['type']),
-  subtitle: R.path(['subtitle']),
-  restrictions: R.path(['restrictions']),
-  pricing: root => R.path(['pricing'], root) || R.path(['pricingFrom'], root),
-};
-
-const itineraryMap = {
-  name: R.path(['name']),
-  type: R.path(['type']),
-  address: R.path(['address']),
-  coordinates: itinerary => ((itinerary.latitude
-    && Boolean(itinerary.longitude)) ? doMap(itinerary, {
-      lat: R.path(['latitude']),
-      long: R.path(['longitude']),
-    }) : undefined),
-  duration: ({ duration }) => (isNilOrEmpty(duration) ? undefined : doMapCurry({
-    durationName: R.path(['duration']),
-    amount: R.path(['durationAmount']),
-    unit: R.path(['durationUnit']),
-  })),
-};
-
-const unitItemMap = {
-  unitItemId: R.path(['uuid']),
-  unitId: R.path(['unitId']),
-  unitName: R.path(['unit', 'title']),
-  supplierBookingId: R.path(['supplierReference']),
-  status: e => capitalize(R.path(['status'], e)),
-  contact: R.path(['contact']),
-  pricing: R.path(['pricing']),
-  unit: root => doMap(root.unit, unitMap),
-};
-
-const contactMapOut = {
-  country: R.path(['country']),
-  emailAddress: R.path(['emailAddress']),
-  name: R.path(['firstName']),
-  surname: R.path(['lastName']),
-  fullName: R.path(['fullName']),
-  locales: R.path(['locales']),
-  notes: R.path(['notes']),
-  phoneNumber: R.path(['phoneNumber']),
-};
-
-const bookingMap = {
-  id: R.path(['id']),
-  orderId: R.path(['orderReference']),
-  bookingId: R.path(['supplierReference']),
-  supplierBookingId: R.path(['supplierReference']),
-  status: e => capitalize(R.path(['status'], e)),
-  productId: R.path(['product', 'id']),
-  productName: R.path(['product', 'title']),
-  optionId: R.path(['option', 'id']),
-  optionName: R.path(['option', 'title']),
-  itinerary: ({ option: { itinerary } = {} }) =>
-    (isNilOrEmptyArray(itinerary) ? undefined : itinerary.map(doMapCurry(itineraryMap))),
-  duration: booking => doMap(booking, {
-    durationName: R.path(['duration']),
-    amount: R.path(['durationAmount']),
-    unit: R.path(['durationUnit']),
-  }),
-  cancellable: R.path(['cancellable']),
-  unitItems: ({ unitItems }) =>
-    (isNilOrEmptyArray(unitItems) ? undefined : unitItems.map(doMapCurry(unitItemMap))),
-  start: R.path(['availability', 'localDateTimeStart']),
-  end: R.path(['availability', 'localDateTimeEnd']),
-  allDay: R.path(['availability', 'allDay']),
-  bookingDate: R.path(['utcCreatedAt']),
-  holder: booking => doMap(R.path(['contact'], booking), contactMapOut),
-  telephone: R.pathOr(undefined, ['contact', 'phoneNumber']),
-  notes: R.pathOr(undefined, ['notes']),
-  price: R.path(['pricing']),
-  offer: booking => (booking.offerCode ? doMap(booking, {
-    offerId: R.path(['offerCode']),
-    title: R.pathOr(undefined, ['offerTitle']),
-    description: R.pathOr(undefined, ['offer', 'description']),
-  }) : undefined),
-  cancelPolicy: R.pathOr(undefined, ['product', 'cancellationPolicy']), // TODO: Looks like cancellation text on appers on the shortDescription of the product entity .. an NLP extractor would be usefull ?
-};
-
-const contactMap = {
-  fullName: holder => `${holder.name} ${holder.surname}`,
-  emailAddress: R.path(['emailAddress']),
-  phoneNumber: R.path(['phoneNumber']),
-  locales: R.path(['locales']),
-  country: R.path(['country']),
-};
+const isNilOrEmpty = R.either(R.isNil, R.isEmpty);
 
 const getHeaders = ({
   apiKey,
@@ -201,6 +35,7 @@ const getHeaders = ({
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
   ...resellerId ? { Referer: resellerId } : {},
+  // 'Octo-Capabilities': 'octo/pricing,octo/pickups',
   'Octo-Capabilities': 'octo/pricing',
 });
 
@@ -280,6 +115,10 @@ class Plugin {
       resellerId,
     },
     payload,
+    typeDefsAndQueries: {
+      productTypeDefs,
+      productQuery,
+    },
   }) {
     let url = `${endpoint || this.endpoint}/products`;
     if (!isNilOrEmpty(payload)) {
@@ -300,7 +139,14 @@ class Plugin {
       headers,
     }));
     if (!Array.isArray(results)) results = [results];
-    let products = results.map(e => doMap(e, productMapIn, ['id', 'title']));
+    let products = await Promise.map(
+      results,
+      product => translateProduct({
+        rootValue: product,
+        typeDefs: productTypeDefs,
+        query: productQuery,
+      }),
+    );
     // dynamic extra filtering
     if (!isNilOrEmpty(payload)) {
       const extraFilters = R.omit(['productId'], payload);
@@ -319,50 +165,20 @@ class Plugin {
   }
 
   async searchQuote({
-    token: {
-      apiKey,
-      endpoint,
-      octoEnv,
-      acceptLanguage,
-      resellerId,
-    },
-    payload: {
-      productIds,
-      optionIds,
-      occupancies,
-    },
+    // token: {
+    //   apiKey,
+    //   endpoint,
+    //   octoEnv,
+    //   acceptLanguage,
+    //   resellerId,
+    // },
+    // payload: {
+    //   productIds,
+    //   optionIds,
+    //   occupancies,
+    // },
   }) {
-    assert(occupancies.length > 0, 'there should be at least one occupancy');
-    assert(productIds.length === optionIds.length, 'mismatched product/option combinations');
-    assert(productIds.length === occupancies.length, 'mismatched product/occupancies combinations');
-    assert(productIds.every(Boolean), 'some invalid productId(s)');
-    assert(optionIds.every(Boolean), 'some invalid optionId(s)');
-    assert(occupancies.every(Boolean), 'some invalid occupacies(s)');
-    const quote = occupancies.map(() => productIds.map(productId => ({ productId })));
-    let productsDetail = await Promise.map(R.uniq(productIds), productId => {
-      const headers = getHeaders({
-        apiKey,
-        endpoint,
-        octoEnv,
-        acceptLanguage,
-        resellerId,
-      });
-      const url = `${endpoint || this.endpoint}/products/${productId}`;
-      return axios({
-        method: 'get',
-        url,
-        headers,
-      });
-    }, { concurrency: CONCURRENCY }).map(({ data }) => data);
-    productsDetail = R.indexBy(R.prop('id'), productsDetail);
-    // console.log({ optionIds });
-    productIds.forEach((productId, productIdIx) => {
-      const optionDetail = productsDetail[productId]
-        .options.filter(({ id }) => id === optionIds[productIdIx])[0];
-      quote[productIdIx] =
-        pickUnit(optionDetail.units, occupancies[productIdIx]).map(e => doMap(e, rateMap));
-    });
-    return { quote };
+    return { quote: [] };
   }
 
   async searchAvailability({
@@ -373,42 +189,33 @@ class Plugin {
       acceptLanguage,
       resellerId,
     },
-    token,
     payload: {
       productIds,
       optionIds,
-      occupancies,
+      units,
       startDate,
       endDate,
       dateFormat,
       currency,
     },
+    typeDefsAndQueries: {
+      availTypeDefs,
+      availQuery,
+    },
   }) {
     assert(this.jwtKey, 'JWT secret should be set');
-    assert(occupancies.length > 0, 'there should be at least one occupancy');
     assert(
       productIds.length === optionIds.length,
       'mismatched productIds/options length',
     );
     assert(
-      optionIds.length === occupancies.length,
-      'mismatched options/occupancies length',
+      optionIds.length === units.length,
+      'mismatched options/units length',
     );
     assert(productIds.every(Boolean), 'some invalid productId(s)');
     assert(optionIds.every(Boolean), 'some invalid optionId(s)');
-    assert(occupancies.every(Boolean), 'some invalid occupacies(s)');
     const localDateStart = moment(startDate, dateFormat).format('YYYY-MM-DD');
     const localDateEnd = moment(endDate, dateFormat).format('YYYY-MM-DD');
-    // obtain the rates
-    const { quote } = await this.searchQuote({
-      token,
-      payload: {
-        productIds,
-        optionIds,
-        occupancies,
-      },
-    });
-    const rates = quote.map(q => q.map(({ rateId }) => rateId));
     const headers = getHeaders({
       apiKey,
       endpoint,
@@ -417,43 +224,35 @@ class Plugin {
       resellerId,
     });
     const url = `${endpoint || this.endpoint}/availability`;
-    let availability = (
-      await Promise.map(rates, async (rate, rateIx) => {
-        const qtys = R.countBy(x => x)(rate);
+    const availability = (
+      await Promise.map(productIds, async (productId, ix) => {
         const data = {
-          productId: productIds[rateIx],
-          optionId: optionIds[rateIx],
+          productId,
+          optionId: optionIds[ix],
           localDateStart,
           localDateEnd,
-          currency,
-          units: Object.entries(qtys).map(([id, quantity]) => ({
-            id, quantity,
-          })),
+          units: units[ix].map(u => ({ id: u.unitId, quantity: u.quantity })),
         };
-        return axios({
+        if (currency) data.currency = currency;
+        const result = R.path(['data'], await axios({
           method: 'post',
           url,
           data,
           headers,
-        });
-      }, { concurrency: CONCURRENCY })
-    ).map(({ data }) => data);
-    availability = availability.map(
-      (avails, availsIx) => (avails.map(
-        avail => (avail.available ? ({
-          key: jwt.sign(({
-            productId: productIds[availsIx],
-            optionId: optionIds[availsIx],
-            availabilityId: avail.id,
+        }));
+        return Promise.map(result, avail => translateAvailability({
+          typeDefs: availTypeDefs,
+          query: availQuery,
+          rootValue: avail,
+          variableValues: {
+            productId,
+            optionId: optionIds[ix],
             currency,
-            unitItems: rates[availsIx].map(rate => ({ unitId: rate })),
-          }), this.jwtKey),
-          ...doMap(avail, availabilityMap),
-          available: true,
-        }) : ({
-          available: false,
-        })),
-      )),
+            unitsWithQuantity: units[ix],
+            jwtKey: this.jwtKey,
+          },
+        }));
+      }, { concurrency: CONCURRENCY })
     );
     return { availability };
   }
@@ -466,42 +265,33 @@ class Plugin {
       acceptLanguage,
       resellerId,
     },
-    token,
     payload: {
       productIds,
       optionIds,
-      occupancies,
+      units,
       startDate,
       endDate,
       currency,
       dateFormat,
     },
+    typeDefsAndQueries: {
+      availTypeDefs,
+      availQuery,
+    },
   }) {
     assert(this.jwtKey, 'JWT secret should be set');
-    assert(occupancies.length > 0, 'there should be at least one occupancy');
     assert(
       productIds.length === optionIds.length,
       'mismatched productIds/options length',
     );
     assert(
-      optionIds.length === occupancies.length,
-      'mismatched options/occupancies length',
+      optionIds.length === units.length,
+      'mismatched options/units length',
     );
     assert(productIds.every(Boolean), 'some invalid productId(s)');
     assert(optionIds.every(Boolean), 'some invalid optionId(s)');
-    assert(occupancies.every(Boolean), 'some invalid occupacies(s)');
     const localDateStart = moment(startDate, dateFormat).format('YYYY-MM-DD');
     const localDateEnd = moment(endDate, dateFormat).format('YYYY-MM-DD');
-    // obtain the rates
-    const { quote } = await this.searchQuote({
-      token,
-      payload: {
-        productIds,
-        optionIds,
-        occupancies,
-      },
-    });
-    const rates = quote.map(q => q.map(({ rateId }) => rateId));
     const headers = getHeaders({
       apiKey,
       endpoint,
@@ -510,31 +300,29 @@ class Plugin {
       resellerId,
     });
     const url = `${endpoint || this.endpoint}/availability/calendar`;
-    let availability = (
-      await Promise.map(rates, async (rate, rateIx) => {
-        const qtys = R.countBy(x => x)(rate);
+    const availability = (
+      await Promise.map(productIds, async (productId, ix) => {
         const data = {
-          productId: productIds[rateIx],
-          optionId: optionIds[rateIx],
+          productId,
+          optionId: optionIds[ix],
           localDateStart,
           localDateEnd,
-          currency,
-          units: Object.entries(qtys).map(([id, quantity]) => ({
-            id, quantity,
-          })),
+          // units is required here to get the total pricing for the calendar
+          units: units[ix].map(u => ({ id: u.unitId, quantity: u.quantity })),
         };
-        return axios({
+        if (currency) data.currency = currency;
+        const result = await axios({
           method: 'post',
           url,
           data,
           headers,
         });
+        return Promise.map(result.data, avail => translateAvailability({
+          rootValue: avail,
+          typeDefs: availTypeDefs,
+          query: availQuery,
+        }));
       }, { concurrency: CONCURRENCY })
-    ).map(({ data }) => data);
-    availability = availability.map(
-      (avails, availsIx) => (avails.map(
-        avail => doMap(avail, availabilityMap),
-      )),
     );
     return { availability };
   }
@@ -548,11 +336,16 @@ class Plugin {
       resellerId,
     },
     payload: {
+      rebookingId,
       availabilityKey,
       holder,
       notes,
       reference,
       settlementMethod,
+    },
+    typeDefsAndQueries: {
+      bookingTypeDefs,
+      bookingQuery,
     },
   }) {
     assert(availabilityKey, 'an availability code is required !');
@@ -565,33 +358,45 @@ class Plugin {
       acceptLanguage,
       resellerId,
     });
-    let url = `${endpoint || this.endpoint}/bookings`;
-    let data = await jwt.verify(availabilityKey, this.jwtKey);
+    const dataForCreateBooking = await jwt.verify(availabilityKey, this.jwtKey);
     let booking = R.path(['data'], await axios({
-      method: 'post',
-      url,
+      method: rebookingId ? 'patch' : 'post',
+      url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
       data: {
         settlementMethod,
-        ...data,
+        ...dataForCreateBooking,
         notes,
       },
       headers,
     }));
-    url = `${endpoint || this.endpoint}/bookings/${booking.uuid}/confirm`;
-    const contact = doMap(holder, contactMap);
-    data = {
-      contact,
-      notes,
-      resellerReference: reference,
-      settlementMethod,
-    };
-    booking = R.path(['data'], await axios({
-      method: 'post',
-      url,
-      data,
-      headers,
-    }));
-    return ({ booking: doMap(booking, bookingMap) });
+    // for booking update, we may not need to confirm again
+    if (!booking.utcConfirmedAt) {
+      const dataForConfirmBooking = {
+        contact: {
+          fullName: `${holder.name} ${holder.surname}`,
+          emailAddress: R.path(['emailAddress'], holder),
+          phoneNumber: R.path(['phoneNumber'], holder),
+          locales: R.path(['locales'], holder),
+          country: R.path(['country'], holder),
+        },
+        notes,
+        resellerReference: reference,
+        settlementMethod,
+      };
+      booking = R.path(['data'], await axios({
+        method: 'post',
+        url: `${endpoint || this.endpoint}/bookings/${booking.uuid}/confirm`,
+        data: dataForConfirmBooking,
+        headers,
+      }));
+    }
+    return ({
+      booking: await translateBooking({
+        rootValue: booking,
+        typeDefs: bookingTypeDefs,
+        query: bookingQuery,
+      }),
+    });
   }
 
   async cancelBooking({
@@ -606,6 +411,10 @@ class Plugin {
       bookingId,
       id,
       reason,
+    },
+    typeDefsAndQueries: {
+      bookingTypeDefs,
+      bookingQuery,
     },
   }) {
     assert(!isNilOrEmpty(bookingId) || !isNilOrEmpty(id), 'Invalid booking id');
@@ -623,7 +432,13 @@ class Plugin {
       data: { reason },
       headers,
     }));
-    return ({ cancellation: doMap(booking, bookingMap) });
+    return ({
+      cancellation: await translateBooking({
+        rootValue: booking,
+        typeDefs: bookingTypeDefs,
+        query: bookingQuery,
+      }),
+    });
   }
 
   async searchBooking({
@@ -641,6 +456,10 @@ class Plugin {
       travelDateStart,
       travelDateEnd,
       dateFormat,
+    },
+    typeDefsAndQueries: {
+      bookingTypeDefs,
+      bookingQuery,
     },
   }) {
     assert(
@@ -707,7 +526,13 @@ class Plugin {
       }
       return [];
     })();
-    return ({ bookings: R.unnest(bookings).map(doMapCurry(bookingMap)) });
+    return ({
+      bookings: await Promise.map(R.unnest(bookings), booking => translateBooking({
+        rootValue: booking,
+        typeDefs: bookingTypeDefs,
+        query: bookingQuery,
+      })),
+    });
   }
 }
 

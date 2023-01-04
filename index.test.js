@@ -6,11 +6,26 @@ const faker = require('faker');
 const Plugin = require('./index');
 const fixtureUnits = require('./__fixtures__/units.js');
 
+const { typeDefs: productTypeDefs, query: productQuery } = require('./node_modules/ti2/controllers/graphql-schemas/product');
+const { typeDefs: availTypeDefs, query: availQuery } = require('./node_modules/ti2/controllers/graphql-schemas/availability');
+const { typeDefs: bookingTypeDefs, query: bookingQuery } = require('./node_modules/ti2/controllers/graphql-schemas/booking');
+const { typeDefs: rateTypeDefs, query: rateQuery } = require('./node_modules/ti2/controllers/graphql-schemas/rate');
+
+const typeDefsAndQueries = {
+  productTypeDefs,
+  productQuery,
+  availTypeDefs,
+  availQuery,
+  bookingTypeDefs,
+  bookingQuery,
+  rateTypeDefs,
+  rateQuery,
+};
+
 const app = new Plugin({
   jwtKey: process.env.ti2_ventrata_jwtKey,
+  endpoint: process.env.ti2_ventrata_endpoint,
 });
-
-const rnd = arr => arr[Math.floor(Math.random() * arr.length)];
 
 describe('search tests', () => {
   let products;
@@ -103,6 +118,7 @@ describe('search tests', () => {
     it('get for all products, a test product should exist', async () => {
       const retVal = await app.searchProducts({
         token,
+        typeDefsAndQueries,
       });
       expect(Array.isArray(retVal.products)).toBeTruthy();
       // console.log(retVal.products.filter(({ productName }) => productName === testProduct.productName));
@@ -121,6 +137,7 @@ describe('search tests', () => {
         payload: {
           productId: testProduct.productId,
         },
+        typeDefsAndQueries,
       });
       expect(Array.isArray(retVal.products)).toBeTruthy();
       expect(retVal.products).toHaveLength(1);
@@ -132,6 +149,7 @@ describe('search tests', () => {
         payload: {
           productName: '*bus*',
         },
+        typeDefsAndQueries,
       });
       expect(Array.isArray(retVal.products)).toBeTruthy();
       expect(retVal.products.length).toBeGreaterThan(0);
@@ -146,62 +164,39 @@ describe('search tests', () => {
           dateFormat,
           productIds: [
             '28ca088b-bc7b-4746-ab06-5971f1ed5a5e',
-            '5d981651-e204-4549-bfbe-691043dd2515',
+            '3465143f-4902-447a-9c1e-8e5598666663',
           ],
-          optionIds: ['DEFAULT', 'DEFAULT'],
-          occupancies: [
-            [{ age: 30 }, { age: 40 }],
-            [{ age: 30 }, { age: 40 }],
+          optionIds: ['DEFAULT', 'dbe73645-2dd9-4cde-ade0-4faa95668d01'],
+          units: [
+            [{ unitId: 'unit_c1709f42-297e-4f7e-bd6b-3e77d4622d8a', quantity: 2 }],
+            [{ unitId: 'unit_d49f8d25-5b37-4365-b67d-daa0594d021e', quantity: 2 }],
           ],
         },
+        typeDefsAndQueries,
       });
       expect(retVal).toBeTruthy();
       const { availability } = retVal;
       expect(availability).toHaveLength(2);
       expect(availability[0].length).toBeGreaterThan(0);
     });
-    it('should be able to get quotes', async () => {
-      const retVal = await app.searchQuote({
-        token,
-        payload: {
-          startDate: moment().add(6, 'M').format(dateFormat),
-          endDate: moment().add(6, 'M').add(2, 'd').format(dateFormat),
-          dateFormat,
-          productIds: busProducts.map(({ productId }) => productId),
-          optionIds: busProducts.map(({ options }) =>
-            faker.random.arrayElement(options).optionId),
-          occupancies: [
-            [{ age: 30 }, { age: 40 }],
-            [{ age: 30 }, { age: 40 }],
-          ],
-        },
-      });
-      expect(retVal).toBeTruthy();
-      const { quote } = retVal;
-      expect(quote.length).toBeGreaterThan(0);
-      expect(quote[0]).toContainObject([{
-        rateName: 'adult',
-        pricing: expect.toContainObject([{
-          currency: 'USD',
-        }]),
-      }]);
-    });
+
     let availabilityKey;
     it('should be able to get availability', async () => {
       const retVal = await app.searchAvailability({
         token,
+        typeDefsAndQueries,
         payload: {
           startDate: moment().add(6, 'M').format(dateFormat),
           endDate: moment().add(6, 'M').add(2, 'd').format(dateFormat),
           dateFormat,
           productIds: [
             '28ca088b-bc7b-4746-ab06-5971f1ed5a5e',
-            '5d981651-e204-4549-bfbe-691043dd2515',
+            '3465143f-4902-447a-9c1e-8e5598666663',
           ],
-          optionIds: ['DEFAULT', 'DEFAULT'],
-          occupancies: [
-            [{ age: 30 }, { age: 40 }],
-            [{ age: 30 }, { age: 40 }],
+          optionIds: ['DEFAULT', 'dbe73645-2dd9-4cde-ade0-4faa95668d01'],
+          units: [
+            [{ unitId: 'unit_c1709f42-297e-4f7e-bd6b-3e77d4622d8a', quantity: 2 }],
+            [{ unitId: 'unit_d49f8d25-5b37-4365-b67d-daa0594d021e', quantity: 2 }],
           ],
         },
       });
@@ -218,6 +213,7 @@ describe('search tests', () => {
       const fullName = faker.name.findName().split(' ');
       const retVal = await app.createBooking({
         token,
+        typeDefsAndQueries,
         payload: {
           availabilityKey,
           notes: faker.lorem.paragraph(),
@@ -244,6 +240,7 @@ describe('search tests', () => {
     it('should be able to cancel the booking', async () => {
       const retVal = await app.cancelBooking({
         token,
+        typeDefsAndQueries,
         payload: {
           bookingId: booking.id,
           reason: faker.lorem.paragraph(),
@@ -259,6 +256,7 @@ describe('search tests', () => {
     it('it should be able to search bookings by id', async () => {
       const retVal = await app.searchBooking({
         token,
+        typeDefsAndQueries,
         payload: {
           bookingId: booking.id,
         },
@@ -270,6 +268,7 @@ describe('search tests', () => {
     it('it should be able to search bookings by reference', async () => {
       const retVal = await app.searchBooking({
         token,
+        typeDefsAndQueries,
         payload: {
           bookingId: reference,
         },
@@ -281,6 +280,7 @@ describe('search tests', () => {
     it('it should be able to search bookings by supplierBookingId', async () => {
       const retVal = await app.searchBooking({
         token,
+        typeDefsAndQueries,
         payload: {
           bookingId: booking.supplierBookingId,
         },
@@ -292,6 +292,7 @@ describe('search tests', () => {
     it('it should be able to search bookings by travelDate', async () => {
       const retVal = await app.searchBooking({
         token,
+        typeDefsAndQueries,
         payload: {
           travelDateStart: moment().add(6, 'M').format(dateFormat),
           travelDateEnd: moment().add(6, 'M').add(2, 'd').format(dateFormat),
@@ -306,6 +307,7 @@ describe('search tests', () => {
       const fullName = faker.name.findName().split(' ');
       const retVal = await app.createBooking({
         token,
+        typeDefsAndQueries,
         payload: {
           availabilityKey,
           notes: faker.lorem.paragraph(),
