@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - run: sed -i 's/"file:.*"/"latest"/' package.json
+      - name: install dependencies
+        run: npm i
       - uses: actions/setup-node@v1
         with:
           node-version: 12
@@ -38,6 +41,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+      - run: sed -i 's/"file:.*"/"latest"/' package.json
+      - name: install dependencies
+        run: npm i
       - uses: JS-DevTools/npm-publish@v1
         with:
           token: ${{ secrets.NPM_TOKEN }}
