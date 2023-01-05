@@ -11,7 +11,7 @@ const resolvers = {
   Query: {
     id: R.path(['id']),
     orderId: R.path(['orderReference']),
-    bookingId: R.path(['supplierReference']),
+    bookingId: R.path(['id']),
     supplierBookingId: R.path(['supplierReference']),
     status: e => capitalize(R.path(['status'], e)),
     productId: R.path(['product', 'id']),
