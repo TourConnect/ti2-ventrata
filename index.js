@@ -52,9 +52,13 @@ class Plugin {
     const pluginObj = this;
     this.axios = async (...args) => axiosRaw(...args).catch(err => {
       const errMsg = R.path(['response', 'data', 'errorMessage'], err);
-      console.log('error in ti2-ventrata', args[0], errMsg);
+      console.log(`error in ${this.name}`, args[0], errMsg || err);
       if (pluginObj.events) {
-        pluginObj.events.emit(`${this.name}.axios.error`, { request: args[0], err, errMsg });
+        pluginObj.events.emit(`${this.name}.axios.error`, {
+          request: args[0],
+          err: JSON.parse(JSON.stringify(err)),
+          errMsg,
+        });
       }
       if (errMsg) throw new Error(errMsg);
       throw err;
