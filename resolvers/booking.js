@@ -10,9 +10,10 @@ const capitalize = sParam => {
 const resolvers = {
   Query: {
     id: R.path(['id']),
-    orderId: R.path(['orderReference']),
     bookingId: R.path(['id']),
+    orderId: R.path(['orderReference']),
     supplierBookingId: R.path(['supplierReference']),
+    resellerReference: R.propOr('', 'resellerReference'),
     status: e => capitalize(R.path(['status'], e)),
     productId: R.path(['product', 'id']),
     productName: root => R.path(['product', 'title'], root) || R.path(['product', 'internalName'], root),
@@ -44,7 +45,6 @@ const resolvers = {
     },
     optionId: R.path(['option', 'id']),
     optionName: root => R.path(['option', 'title'], root) || R.path(['option', 'internalName'], root),
-    resellerReference: R.propOr('', 'resellerReference'),
     publicUrl: () => null,
     privateUrl: () => null,
     pickupRequested: R.prop('pickupRequested'),
