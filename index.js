@@ -9,6 +9,7 @@ const wildcardMatch = require('./utils/wildcardMatch');
 const { translateProduct } = require('./resolvers/product');
 const { translateAvailability } = require('./resolvers/availability');
 const { translateBooking } = require('./resolvers/booking');
+const { translatePickupPoint } = require('./resolvers/pickup-point');
 
 const CONCURRENCY = 3; // is this ok ?
 if (process.env.debug) {
@@ -29,7 +30,7 @@ const getHeaders = ({
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
   ...resellerId ? { Referer: resellerId } : {},
-  'Octo-Capabilities': 'octo/pricing,octo/pickups',
+  'Octo-Capabilities': 'octo/pricing,octo/pickups,octo/cart',
   ...requestId ? { requestId } : {},
   // 'Octo-Capabilities': 'octo/pricing',
 });
@@ -575,32 +576,47 @@ class Plugin {
       })),
     });
   }
+
+  async getPickupPoints({
+    token: {
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
+      resellerId,
+    },
+    typeDefsAndQueries: {
+      pickupTypeDefs,
+      pickupQuery,
+    },
+  }) {
+    const url = `${endpoint || this.endpoint}/products`;
+    const headers = getHeaders({
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
+      resellerId,
+    });
+    const products = R.pathOr([], ['data'], await axios({
+      method: 'get',
+      url,
+      headers,
+    }));
+    const pickupPoints = R.call(R.compose(
+      R.uniqBy(R.prop('id')),
+      R.chain(R.propOr([], 'pickupPoints')),
+      R.filter(o => o.pickupPoints && o.pickupPoints.length),
+      R.chain(R.propOr([], 'options')),
+    ), products);
+    return {
+      pickupPoints: await Promise.map(pickupPoints, async pickup => translatePickupPoint({
+        rootValue: pickup,
+        typeDefs: pickupTypeDefs,
+        query: pickupQuery,
+      })),
+    };
+  }
 }
 
-const pickUnit = (units, paxs) => {
-  const evalOne = (unit, pax) => {
-    if (pax.age < R.path(['restrictions', 'minAge'], unit)) {
-      return false;
-    }
-    if (pax.age > R.path(['restrictions', 'maxAge'], unit)) {
-      return false;
-    }
-    return true;
-  };
-  if (paxs.length > 1) { // find group units
-    const group = units.filter(({ restrictions }) => Boolean(restrictions)).find(unit => {
-      if (
-        R.path(['restrictions', 'paxCount'], unit) === paxs.length
-        && paxs.every(pax => evalOne(unit, pax))
-      ) return true;
-      return false;
-    });
-    if (group) return [group];
-  }
-  return paxs.map(pax => units
-    .filter(unit => R.path(['restrictions', 'paxCount'], unit) === 1)
-    .find(unit => evalOne(unit, pax))); // individual units
-};
-
 module.exports = Plugin;
-module.exports.pickUnit = pickUnit;

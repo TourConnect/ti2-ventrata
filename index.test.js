@@ -43,31 +43,6 @@ describe('search tests', () => {
     // nada
   });
   describe('utilities', () => {
-    describe('pickUnit', () => {
-      it('adult', () => {
-        const result = Plugin.pickUnit(fixtureUnits, [{ age: 40 }]);
-        expect(result.length).toBe(1);
-        expect(result[0]).toContainObject([{ id: 'adult' }]);
-      });
-      it('child', () => {
-        const result = Plugin.pickUnit(fixtureUnits, [{ age: 10 }]);
-        expect(result.length).toBe(1);
-        expect(result[0]).toContainObject([{ id: 'child' }]);
-      });
-      it('senior', () => {
-        const result = Plugin.pickUnit(fixtureUnits, [{ age: 70 }]);
-        expect(result.length).toBe(1);
-        expect(result[0]).toContainObject([{ id: 'senior' }]);
-      });
-      it('family', () => {
-        const result = Plugin.pickUnit(fixtureUnits, [
-          { age: 70 }, { age: 32 }, { age: 32 }, { age: 14 },
-        ]);
-        expect(result.length).toBe(1);
-        expect(result[0]).toContainObject([{ id: 'family' }]);
-      });
-      it.todo('family + one');
-    });
     describe('validateToken', () => {
       it('valid token', async () => {
         const retVal = await app.validateToken({
