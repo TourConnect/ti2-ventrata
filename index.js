@@ -37,8 +37,9 @@ const getHeaders = ({
 
 const axiosSafeRequest = R.pick(['headers', 'method', 'url', 'data']);
 const axiosSafeResponse = response => {
-  const retVal = R.pick(['data', 'status', 'statusText', 'headers', 'request'], response);
+  const retVal = R.pick(['data', 'status', 'statusText', 'headers', 'request', 'config'], response);
   retVal.request = axiosSafeRequest(retVal.request);
+  retVal.config = axiosSafeRequest(retVal.config);
   return retVal;
 };
 
