@@ -16,13 +16,6 @@ if (process.env.debug) {
   curlirize(axiosRaw);
 }
 
-const axios = async (...args) => axiosRaw(...args)
-  .catch(err => {
-    const errMsg = R.path(['response', 'data', 'errorMessage'], err);
-    console.log('error in ti2-ventrata', args[0], errMsg);
-    if (errMsg) throw new Error(errMsg);
-    throw err;
-  });
 const isNilOrEmpty = R.either(R.isNil, R.isEmpty);
 
 const getHeaders = ({
@@ -30,6 +23,7 @@ const getHeaders = ({
   acceptLanguage,
   octoEnv,
   resellerId,
+  requestId,
 }) => ({
   Authorization: `Bearer ${apiKey}`,
   ...octoEnv ? { 'Octo-Env': octoEnv } : {},
@@ -37,14 +31,45 @@ const getHeaders = ({
   'Content-Type': 'application/json',
   ...resellerId ? { Referer: resellerId } : {},
   'Octo-Capabilities': 'octo/pricing,octo/pickups,octo/cart',
+  ...requestId ? { requestId } : {},
   // 'Octo-Capabilities': 'octo/pricing',
 });
+
+const axiosSafeRequest = R.pick(['headers', 'method', 'url', 'data']);
+const axiosSafeResponse = response => {
+  const retVal = R.pick(['data', 'status', 'statusText', 'headers', 'request'], response);
+  retVal.request = axiosSafeRequest(retVal.request);
+  return retVal;
+};
 
 class Plugin {
   constructor(params) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
       this[attr] = value;
     });
+    if (this.events) {
+      axiosRaw.interceptors.request.use(request => {
+        this.events.emit(`${this.name}.axios.request`, axiosSafeRequest(request));
+        return request;
+      });
+      axiosRaw.interceptors.response.use(response => {
+        this.events.emit(`${this.name}.axios.response`, axiosSafeResponse(response));
+        return response;
+      });
+    }
+    const pluginObj = this;
+    this.axios = async (...args) => axiosRaw(...args).catch(err => {
+      const errMsg = R.omit(['config'], err.toJSON());
+      console.log(`error in ${this.name}`, args[0], errMsg);
+      if (pluginObj.events) {
+        pluginObj.events.emit(`${this.name}.axios.error`, {
+          request: args[0],
+          err: errMsg,
+        });
+      }
+      throw R.pathOr(err, ['response', 'data', 'errorMessage'], err);
+    });
+
     this.tokenTemplate = () => ({
       apiKey: {
         type: 'text',
@@ -86,6 +111,7 @@ class Plugin {
       acceptLanguage,
       resellerId,
     },
+    requestId,
   }) {
     const url = `${endpoint || this.endpoint}/whoami?token=${apiKey}`;
     const headers = getHeaders({
@@ -94,9 +120,10 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
+      requestId,
     });
     try {
-      const connectionId = R.path(['data', 'connection', 'id'], await axios({
+      const connectionId = R.path(['data', 'connection', 'id'], await this.axios({
         method: 'get',
         url,
         headers,
@@ -120,6 +147,7 @@ class Plugin {
       productTypeDefs,
       productQuery,
     },
+    requestId,
   }) {
     let url = `${endpoint || this.endpoint}/products`;
     if (!isNilOrEmpty(payload)) {
@@ -133,8 +161,9 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
+      requestId,
     });
-    let results = R.pathOr([], ['data'], await axios({
+    let results = R.pathOr([], ['data'], await this.axios({
       method: 'get',
       url,
       headers,
@@ -203,6 +232,7 @@ class Plugin {
       availTypeDefs,
       availQuery,
     },
+    requestId,
   }) {
     assert(this.jwtKey, 'JWT secret should be set');
     assert(
@@ -223,6 +253,7 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
+      requestId,
     });
     const url = `${endpoint || this.endpoint}/availability`;
     const availability = (
@@ -235,7 +266,7 @@ class Plugin {
           units: units[ix].map(u => ({ id: u.unitId, quantity: u.quantity })),
         };
         if (currency) data.currency = currency;
-        const result = R.path(['data'], await axios({
+        const result = R.path(['data'], await this.axios({
           method: 'post',
           url,
           data,
@@ -279,6 +310,7 @@ class Plugin {
       availTypeDefs,
       availQuery,
     },
+    requestId,
   }) {
     assert(this.jwtKey, 'JWT secret should be set');
     assert(
@@ -299,6 +331,7 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
+      requestId,
     });
     const url = `${endpoint || this.endpoint}/availability/calendar`;
     const availability = (
@@ -312,7 +345,7 @@ class Plugin {
           units: units[ix].map(u => ({ id: u.unitId, quantity: u.quantity })),
         };
         if (currency) data.currency = currency;
-        const result = await axios({
+        const result = await this.axios({
           method: 'post',
           url,
           data,
@@ -349,6 +382,7 @@ class Plugin {
       bookingTypeDefs,
       bookingQuery,
     },
+    requestId,
   }) {
     assert(availabilityKey, 'an availability code is required !');
     assert(R.path(['name'], holder), 'first name is required');
@@ -359,9 +393,10 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
+      requestId,
     });
     const dataForCreateBooking = await jwt.verify(availabilityKey, this.jwtKey);
-    let booking = R.path(['data'], await axios({
+    let booking = R.path(['data'], await this.axios({
       method: rebookingId ? 'patch' : 'post',
       url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
       data: {
@@ -386,7 +421,7 @@ class Plugin {
         resellerReference: reference,
         settlementMethod,
       };
-      booking = R.path(['data'], await axios({
+      booking = R.path(['data'], await this.axios({
         method: 'post',
         url: `${endpoint || this.endpoint}/bookings/${booking.uuid}/confirm`,
         data: dataForConfirmBooking,
@@ -419,6 +454,7 @@ class Plugin {
       bookingTypeDefs,
       bookingQuery,
     },
+    requestId,
   }) {
     assert(!isNilOrEmpty(bookingId) || !isNilOrEmpty(id), 'Invalid booking id');
     const headers = getHeaders({
@@ -427,9 +463,10 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
+      requestId,
     });
     const url = `${endpoint || this.endpoint}/bookings/${bookingId || id}`;
-    const booking = R.path(['data'], await axios({
+    const booking = R.path(['data'], await this.axios({
       method: 'delete',
       url,
       data: { reason },
@@ -464,6 +501,7 @@ class Plugin {
       bookingTypeDefs,
       bookingQuery,
     },
+    requestId,
   }) {
     assert(
       !isNilOrEmpty(bookingId)
@@ -480,10 +518,11 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
+      requestId,
     });
     const searchByUrl = async url => {
       try {
-        return R.path(['data'], await axios({
+        return R.path(['data'], await this.axios({
           method: 'get',
           url,
           headers,
@@ -503,7 +542,7 @@ class Plugin {
       }
       if (!isNilOrEmpty(resellerReference)) {
         url = `${endpoint || this.endpoint}/bookings?resellerReference=${resellerReference}`;
-        return R.path(['data'], await axios({
+        return R.path(['data'], await this.axios({
           method: 'get',
           url,
           headers,
@@ -511,7 +550,7 @@ class Plugin {
       }
       if (!isNilOrEmpty(supplierBookingId)) {
         url = `${endpoint || this.endpoint}/bookings?supplierReference=${supplierBookingId}`;
-        return R.path(['data'], await axios({
+        return R.path(['data'], await this.axios({
           method: 'get',
           url,
           headers,
@@ -521,7 +560,7 @@ class Plugin {
         const localDateStart = moment(travelDateStart, dateFormat).format();
         const localDateEnd = moment(travelDateEnd, dateFormat).format();
         url = `${endpoint || this.endpoint}/bookings?localDateStart=${encodeURIComponent(localDateStart)}&localDateEnd=${encodeURIComponent(localDateEnd)}`;
-        return R.path(['data'], await axios({
+        return R.path(['data'], await this.axios({
           method: 'get',
           url,
           headers,
