@@ -4,12 +4,12 @@ const moment = require('moment');
 const faker = require('faker');
 
 const Plugin = require('./index');
-const fixtureUnits = require('./__fixtures__/units.js');
 
 const { typeDefs: productTypeDefs, query: productQuery } = require('./node_modules/ti2/controllers/graphql-schemas/product');
 const { typeDefs: availTypeDefs, query: availQuery } = require('./node_modules/ti2/controllers/graphql-schemas/availability');
 const { typeDefs: bookingTypeDefs, query: bookingQuery } = require('./node_modules/ti2/controllers/graphql-schemas/booking');
 const { typeDefs: rateTypeDefs, query: rateQuery } = require('./node_modules/ti2/controllers/graphql-schemas/rate');
+const { typeDefs: pickupTypeDefs, query: pickupQuery } = require('./node_modules/ti2/controllers/graphql-schemas/pickup-point');
 
 const typeDefsAndQueries = {
   productTypeDefs,
@@ -20,6 +20,8 @@ const typeDefsAndQueries = {
   bookingQuery,
   rateTypeDefs,
   rateQuery,
+  pickupQuery,
+  pickupTypeDefs,
 };
 
 const app = new Plugin({
@@ -305,6 +307,14 @@ describe('search tests', () => {
       expect(R.path(['id'], booking)).toBeTruthy();
       expect(R.path(['supplierBookingId'], booking)).toBeTruthy();
       expect(R.path(['cancellable'], booking)).toBeTruthy();
+    });
+    it('should be able to get a list of pickuppoints', async () => {
+      const retVal = await app.getPickupPoints({
+        token,
+        typeDefsAndQueries,
+      });
+      expect(Array.isArray(retVal.pickupPoints)).toBeTruthy();
+      expect(R.path(['pickupPoints', 0, 'id'], retVal)).toBeTruthy();
     });
   });
 });
