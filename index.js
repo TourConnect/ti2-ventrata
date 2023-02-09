@@ -589,6 +589,7 @@ class Plugin {
       pickupTypeDefs,
       pickupQuery,
     },
+    requestId,
   }) {
     const url = `${endpoint || this.endpoint}/products`;
     const headers = getHeaders({
@@ -597,8 +598,9 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
+      requestId,
     });
-    const products = R.pathOr([], ['data'], await axios({
+    const products = R.pathOr([], ['data'], await this.axios({
       method: 'get',
       url,
       headers,
