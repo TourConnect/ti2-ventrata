@@ -18,7 +18,6 @@ const getHeaders = ({
   acceptLanguage,
   octoEnv,
   resellerId,
-  requestId,
 }) => ({
   Authorization: `Bearer ${apiKey}`,
   ...octoEnv ? { 'Octo-Env': octoEnv } : {},
@@ -26,7 +25,6 @@ const getHeaders = ({
   'Content-Type': 'application/json',
   ...resellerId ? { Referer: resellerId } : {},
   'Octo-Capabilities': 'octo/pricing,octo/pickups,octo/cart',
-  ...requestId ? { requestId } : {},
   // 'Octo-Capabilities': 'octo/pricing',
 });
 
@@ -78,7 +76,6 @@ class Plugin {
       acceptLanguage,
       resellerId,
     },
-    requestId,
   }) {
     const url = `${endpoint || this.endpoint}/whoami?token=${apiKey}`;
     const headers = getHeaders({
@@ -87,7 +84,6 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
-      requestId,
     });
     try {
       const connectionId = R.path(['data', 'connection', 'id'], await axios({
@@ -115,7 +111,6 @@ class Plugin {
       productTypeDefs,
       productQuery,
     },
-    requestId,
   }) {
     let url = `${endpoint || this.endpoint}/products`;
     if (!isNilOrEmpty(payload)) {
@@ -129,7 +124,6 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
-      requestId,
     });
     let results = R.pathOr([], ['data'], await axios({
       method: 'get',
@@ -201,7 +195,6 @@ class Plugin {
       availTypeDefs,
       availQuery,
     },
-    requestId,
   }) {
     assert(this.jwtKey, 'JWT secret should be set');
     assert(
@@ -222,7 +215,6 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
-      requestId,
     });
     const url = `${endpoint || this.endpoint}/availability`;
     const availability = (
@@ -280,7 +272,6 @@ class Plugin {
       availTypeDefs,
       availQuery,
     },
-    requestId,
   }) {
     assert(this.jwtKey, 'JWT secret should be set');
     assert(
@@ -301,7 +292,6 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
-      requestId,
     });
     const url = `${endpoint || this.endpoint}/availability/calendar`;
     const availability = (
@@ -353,7 +343,6 @@ class Plugin {
       bookingTypeDefs,
       bookingQuery,
     },
-    requestId,
   }) {
     assert(availabilityKey, 'an availability code is required !');
     assert(R.path(['name'], holder), 'first name is required');
@@ -364,7 +353,6 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
-      requestId,
     });
     const dataForCreateBooking = await jwt.verify(availabilityKey, this.jwtKey);
     let booking = R.path(['data'], await axios({
@@ -426,7 +414,6 @@ class Plugin {
       bookingTypeDefs,
       bookingQuery,
     },
-    requestId,
   }) {
     assert(!isNilOrEmpty(bookingId) || !isNilOrEmpty(id), 'Invalid booking id');
     const headers = getHeaders({
@@ -435,7 +422,6 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
-      requestId,
     });
     const url = `${endpoint || this.endpoint}/bookings/${bookingId || id}`;
     const booking = R.path(['data'], await axios({
@@ -474,7 +460,6 @@ class Plugin {
       bookingTypeDefs,
       bookingQuery,
     },
-    requestId,
   }) {
     assert(
       !isNilOrEmpty(bookingId)
@@ -491,7 +476,6 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
-      requestId,
     });
     const searchByUrl = async url => {
       try {
@@ -563,7 +547,6 @@ class Plugin {
       pickupTypeDefs,
       pickupQuery,
     },
-    requestId,
   }) {
     const url = `${endpoint || this.endpoint}/products`;
     const headers = getHeaders({
@@ -572,7 +555,6 @@ class Plugin {
       octoEnv,
       acceptLanguage,
       resellerId,
-      requestId,
     });
     const products = R.pathOr([], ['data'], await axios({
       method: 'get',
