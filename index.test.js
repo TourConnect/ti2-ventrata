@@ -2,6 +2,7 @@
 const R = require('ramda');
 const moment = require('moment');
 const faker = require('faker');
+const axios = require('axios');
 
 const Plugin = require('./index');
 
@@ -48,12 +49,14 @@ describe('search tests', () => {
     describe('validateToken', () => {
       it('valid token', async () => {
         const retVal = await app.validateToken({
+          axios,
           token,
         });
         expect(retVal).toBeTruthy();
       });
       it('invalid token', async () => {
         const retVal = await app.validateToken({
+          axios,
           token: { someRandom: 'thing' },
         });
         expect(retVal).toBeFalsy();
@@ -94,6 +97,7 @@ describe('search tests', () => {
   describe('booking process', () => {
     it('get for all products, a test product should exist', async () => {
       const retVal = await app.searchProducts({
+        axios,
         token,
         typeDefsAndQueries,
       });
@@ -110,6 +114,7 @@ describe('search tests', () => {
     });
     it('should be able to get a single product', async () => {
       const retVal = await app.searchProducts({
+        axios,
         token,
         payload: {
           productId: testProduct.productId,
@@ -122,6 +127,7 @@ describe('search tests', () => {
     let busProducts = [];
     it('should be able to get a product by name', async () => {
       const retVal = await app.searchProducts({
+        axios,
         token,
         payload: {
           productName: '*bus*',
@@ -134,6 +140,7 @@ describe('search tests', () => {
     });
     it('should be able to get an availability calendar', async () => {
       const retVal = await app.availabilityCalendar({
+        axios,
         token,
         payload: {
           startDate: moment().add(6, 'M').format(dateFormat),
@@ -160,6 +167,7 @@ describe('search tests', () => {
     let availabilityKey;
     it('should be able to get availability', async () => {
       const retVal = await app.searchAvailability({
+        axios,
         token,
         typeDefsAndQueries,
         payload: {
@@ -189,6 +197,7 @@ describe('search tests', () => {
     it('should be able to create a booking', async () => {
       const fullName = faker.name.findName().split(' ');
       const retVal = await app.createBooking({
+        axios,
         token,
         typeDefsAndQueries,
         payload: {
@@ -216,6 +225,7 @@ describe('search tests', () => {
     });
     it('should be able to cancel the booking', async () => {
       const retVal = await app.cancelBooking({
+        axios,
         token,
         typeDefsAndQueries,
         payload: {
@@ -232,6 +242,7 @@ describe('search tests', () => {
     let bookings = [];
     it('it should be able to search bookings by id', async () => {
       const retVal = await app.searchBooking({
+        axios,
         token,
         typeDefsAndQueries,
         payload: {
@@ -244,6 +255,7 @@ describe('search tests', () => {
     });
     it('it should be able to search bookings by reference', async () => {
       const retVal = await app.searchBooking({
+        axios,
         token,
         typeDefsAndQueries,
         payload: {
@@ -256,6 +268,7 @@ describe('search tests', () => {
     });
     it('it should be able to search bookings by supplierBookingId', async () => {
       const retVal = await app.searchBooking({
+        axios,
         token,
         typeDefsAndQueries,
         payload: {
@@ -268,6 +281,7 @@ describe('search tests', () => {
     });
     it('it should be able to search bookings by travelDate', async () => {
       const retVal = await app.searchBooking({
+        axios,
         token,
         typeDefsAndQueries,
         payload: {
@@ -283,6 +297,7 @@ describe('search tests', () => {
     it('should be able to create a booking for a referrer', async () => {
       const fullName = faker.name.findName().split(' ');
       const retVal = await app.createBooking({
+        axios,
         token,
         typeDefsAndQueries,
         payload: {
@@ -310,6 +325,7 @@ describe('search tests', () => {
     });
     it('should be able to get a list of pickuppoints', async () => {
       const retVal = await app.getPickupPoints({
+        axios,
         token,
         typeDefsAndQueries,
       });
