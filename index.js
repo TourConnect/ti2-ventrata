@@ -25,7 +25,6 @@ const getHeaders = ({
   'Content-Type': 'application/json',
   ...resellerId ? { Referer: resellerId } : {},
   'Octo-Capabilities': 'octo/pricing,octo/pickups,octo/cart,octo/offers',
-  ...requestId ? { requestId } : {},
   // 'Octo-Capabilities': 'octo/pricing',
 });
 
