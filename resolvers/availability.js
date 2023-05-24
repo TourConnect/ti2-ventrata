@@ -29,6 +29,11 @@ const resolvers = {
     allDay: R.path(['allDay']),
     vacancies: R.prop('vacancies'),
     available: root => root.status !== 'SOLD_OUT',
+    offers: root => R.pathOr([], ['offers'], root).map(o => ({
+      offerId: o.code,
+      title: o.title,
+      description: o.description,
+    })),
     // get the starting price
     pricing: root => R.prop('pricingFrom', root) || R.prop('pricing', root),
     unitPricing: root => R.prop('unitPricingFrom', root) || R.prop('unitPricing', root),
