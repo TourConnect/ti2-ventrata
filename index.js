@@ -24,7 +24,8 @@ const getHeaders = ({
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
   ...resellerId ? { Referer: resellerId } : {},
-  'Octo-Capabilities': 'octo/pricing,octo/pickups,octo/cart',
+  'Octo-Capabilities': 'octo/pricing,octo/pickups,octo/cart,octo/offers',
+  ...requestId ? { requestId } : {},
   // 'Octo-Capabilities': 'octo/pricing',
 });
 
