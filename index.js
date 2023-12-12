@@ -530,7 +530,7 @@ class Plugin {
       return [];
     })();
     return ({
-      bookings: await Promise.map(R.unnest(bookings), booking => translateBooking({
+      bookings: await Promise.map(R.flatten(bookings), booking => translateBooking({
         rootValue: booking,
         typeDefs: bookingTypeDefs,
         query: bookingQuery,
