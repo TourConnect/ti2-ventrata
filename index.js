@@ -65,6 +65,10 @@ class Plugin {
         default: 'en',
       },
     });
+    this.errorPathsAxiosErrors = () => ([ // axios triggered errors
+      ['response', 'data', 'errorMessage'],
+    ]);
+    this.errorPathsAxiosAny = () => ([]); // 200's that should be errors
   }
 
   async validateToken({
@@ -345,8 +349,8 @@ class Plugin {
     },
   }) {
     assert(availabilityKey, 'an availability code is required !');
-    assert(R.path(['name'], holder), 'first name is required');
-    assert(R.path(['surname'], holder), 'surname is required');
+    assert(R.path(['name'], holder), 'First Name is required');
+    assert(R.path(['surname'], holder), 'Last Name is required');
     const headers = getHeaders({
       apiKey,
       endpoint,
@@ -372,7 +376,7 @@ class Plugin {
         contact: {
           fullName: `${holder.name} ${holder.surname}`,
           emailAddress: R.path(['emailAddress'], holder),
-          phoneNumber: R.path(['phoneNumber'], holder),
+          phoneNumber: R.path(['phone'], holder),
           locales: R.path(['locales'], holder),
           country: R.path(['country'], holder),
         },
