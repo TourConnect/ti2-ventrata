@@ -381,7 +381,7 @@ class Plugin {
         },
         notes,
         resellerReference: reference,
-        settlementMethod,
+        settlementMethod: reference && octoEnv !== 'test' ? 'VOUCHER' : 'DEFERRED',
       };
       booking = R.path(['data'], await axios({
         method: 'post',
