@@ -362,7 +362,7 @@ class Plugin {
       method: rebookingId ? 'patch' : 'post',
       url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
       data: {
-        settlementMethod: reference && octoEnv !== 'test' ? 'VOUCHER' : 'DEFERRED',
+        settlementMethod: 'DEFERRED',
         ...dataForCreateBooking,
         notes,
         ...(pickupPoint ? { pickupRequested: true, pickupPointId: pickupPoint } : {}),
