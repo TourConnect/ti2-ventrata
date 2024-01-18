@@ -175,12 +175,12 @@ describe('search tests', () => {
           endDate: moment().add(6, 'M').add(2, 'd').format(dateFormat),
           dateFormat,
           productIds: [
-            '28ca088b-bc7b-4746-ab06-5971f1ed5a5e',
+            '20ef1799-7020-484b-9fb5-905ec5bb5444',
             '3465143f-4902-447a-9c1e-8e5598666663',
           ],
           optionIds: ['DEFAULT', 'dbe73645-2dd9-4cde-ade0-4faa95668d01'],
           units: [
-            [{ unitId: 'unit_c1709f42-297e-4f7e-bd6b-3e77d4622d8a', quantity: 2 }],
+            [{ unitId: 'unit_3e987c7b-b87e-47bf-8638-148cdaf700af', quantity: 2 }],
             [{ unitId: 'unit_d49f8d25-5b37-4365-b67d-daa0594d021e', quantity: 2 }],
           ],
         },
