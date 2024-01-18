@@ -207,7 +207,7 @@ describe('search tests', () => {
           holder: {
             name: fullName[0],
             surname: fullName[1],
-            phoneNumber: faker.phone.phoneNumber(),
+            phone: faker.phone.phoneNumber(),
             emailAddress: `salvador+tests_${faker.lorem.slug()}@tourconnect.com`,
             country: faker.address.countryCode(),
             locales: ['en-US', 'en', 'es'],
@@ -307,7 +307,7 @@ describe('search tests', () => {
           holder: {
             name: fullName[0],
             surname: fullName[1],
-            phoneNumber: faker.phone.phoneNumber(),
+            phone: faker.phone.phoneNumber(),
             emailAddress: `salvador+tests_${faker.lorem.slug()}@tourconnect.com`,
             country: faker.address.countryCode(),
             locales: ['en-US', 'en', 'es'],
