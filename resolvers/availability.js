@@ -28,7 +28,7 @@ const resolvers = {
     dateTimeEnd: root => R.path(['localDateTimeEnd'], root) || R.path(['localDate'], root),
     allDay: R.path(['allDay']),
     vacancies: R.prop('vacancies'),
-    available: root => root.status !== 'SOLD_OUT',
+    available: root => root.status !== 'SOLD_OUT' && root.vacancies > 0,
     offers: root => R.pathOr([], ['offers'], root).map(o => ({
       offerId: o.code,
       title: o.title,

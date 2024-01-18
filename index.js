@@ -17,13 +17,13 @@ const getHeaders = ({
   apiKey,
   acceptLanguage,
   octoEnv,
-  resellerId,
+  // resellerId,
 }) => ({
   Authorization: `Bearer ${apiKey}`,
   ...octoEnv ? { 'Octo-Env': octoEnv } : {},
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
-  ...resellerId ? { Referer: resellerId } : {},
+  // ...resellerId ? { Referer: resellerId } : {},+
   'Octo-Capabilities': 'octo/pricing,octo/pickups,octo/cart,octo/offers',
   // 'Octo-Capabilities': 'octo/pricing',
 });
@@ -381,7 +381,7 @@ class Plugin {
         },
         notes,
         resellerReference: reference,
-        settlementMethod: reference && octoEnv !== 'test' ? 'VOUCHER' : 'DEFERRED',
+        settlementMethod: 'DEFERRED',
       };
       booking = R.path(['data'], await axios({
         method: 'post',
@@ -576,6 +576,15 @@ class Plugin {
         typeDefs: pickupTypeDefs,
         query: pickupQuery,
       })),
+    };
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  async getCreateBookingFields() {
+    const customFields = [];
+    return {
+      fields: [],
+      customFields,
     };
   }
 }
