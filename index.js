@@ -332,7 +332,6 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
-      resellerId,
     },
     payload: {
       rebookingId,
@@ -355,14 +354,13 @@ class Plugin {
       endpoint,
       octoEnv,
       acceptLanguage,
-      resellerId,
     });
     const dataForCreateBooking = await jwt.verify(availabilityKey, this.jwtKey);
     let booking = R.path(['data'], await axios({
       method: rebookingId ? 'patch' : 'post',
       url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
       data: {
-        settlementMethod: 'DEFERRED',
+        settlementMethod: reference ? 'VOUCHER' : 'DEFERRED',
         ...dataForCreateBooking,
         notes,
         ...(pickupPoint ? { pickupRequested: true, pickupPointId: pickupPoint } : {}),
@@ -381,7 +379,7 @@ class Plugin {
         },
         notes,
         resellerReference: reference,
-        settlementMethod: 'DEFERRED',
+        settlementMethod: reference ? 'VOUCHER' : 'DEFERRED',
       };
       booking = R.path(['data'], await axios({
         method: 'post',
