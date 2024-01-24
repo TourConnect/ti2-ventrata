@@ -212,7 +212,8 @@ describe('search tests', () => {
             country: faker.address.countryCode(),
             locales: ['en-US', 'en', 'es'],
           },
-          reference,
+          // our api key doesn't allow us to set the reference and settlementMethod as VOUCHER
+          // reference,
         },
       });
       expect(retVal.booking).toBeTruthy();
@@ -312,7 +313,7 @@ describe('search tests', () => {
             country: faker.address.countryCode(),
             locales: ['en-US', 'en', 'es'],
           },
-          reference,
+          // reference,
           referrer: 'referrerforapitest',
           settlementMethod: 'DEFERRED',
         },
