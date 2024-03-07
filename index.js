@@ -24,7 +24,7 @@ const getHeaders = ({
   ...acceptLanguage ? { 'Accept-Language': acceptLanguage } : {},
   'Content-Type': 'application/json',
   // ...resellerId ? { Referer: resellerId } : {},+
-  'Octo-Capabilities': 'octo/pricing,octo/pickups,octo/cart,octo/offers',
+  'Octo-Capabilities': 'octo/pricing,octo/pickups,octo/cart,octo/offers,octo/questions',
   // 'Octo-Capabilities': 'octo/pricing',
 });
 
@@ -340,6 +340,7 @@ class Plugin {
       notes,
       reference,
       pickupPoint,
+      customFieldValues,
     },
     typeDefsAndQueries: {
       bookingTypeDefs,
@@ -367,6 +368,32 @@ class Plugin {
       },
       headers,
     }));
+    const answers = customFieldValues && customFieldValues.length
+      ? customFieldValues.filter(o => !R.isNil(o.value)).map(o => ({
+        questionId: o.field.id,
+        value: o.value,
+      })) : [];
+    // for answers to custom fields, ventrata suggest to modify the booking
+    if (answers.length) {
+      const modifierBooking = {
+        questionAnswers: booking.questionAnswers.map(o => {
+          const answer = answers.find(a => a.questionId === o.questionId);
+          return answer || o;
+        }),
+        unitItems: booking.unitItems.map(u => ({
+          questionAnswers: u.questionAnswers.map(o => {
+            const answer = answers.find(a => a.questionId === o.questionId);
+            return answer || o;
+          }),
+        })).filter(u => u.questionAnswers.length),
+      };
+      booking = R.path(['data'], await axios({
+        method: 'patch',
+        url: `${endpoint || this.endpoint}/bookings/${booking.uuid}`,
+        data: modifierBooking,
+        headers,
+      }));
+    }
     // for booking update, we may not need to confirm again
     if (!booking.utcConfirmedAt) {
       const dataForConfirmBooking = {
@@ -578,11 +605,81 @@ class Plugin {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  async getCreateBookingFields() {
-    const customFields = [];
+  async getCreateBookingFields({
+    axios,
+    token: {
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
+      resellerId,
+    },
+    query: {
+      productId,
+      date,
+      dateFormat,
+    },
+  }) {
+    const headers = getHeaders({
+      apiKey,
+      endpoint,
+      octoEnv,
+      acceptLanguage,
+      resellerId,
+    });
+    const convertQToField = o => ({
+      id: o.id,
+      subtitle: o.description === o.label ? '' : o.description,
+      title: o.label,
+      type: (() => {
+        if (o.inputType === 'radio') return 'radio';
+        if (Array.isArray(o.selectOptions) && o.selectOptions.length) return 'extended-option';
+        if (o.inputType === 'number') return 'count';
+        if (o.inputType === 'text') return 'long';
+        if (o.inputType === 'textarea') return 'long';
+        return 'long';
+      })(),
+      options: o.selectOptions,
+    });
+    if (!productId) {
+      const allProducts = R.pathOr([], ['data'], await axios({
+        method: 'get',
+        url: `${endpoint || this.endpoint}/products`,
+        headers,
+      }));
+      const allOptions = R.chain(R.propOr([], 'options'), allProducts);
+      const allUnits = R.chain(R.propOr([], 'units'), allOptions);
+      const allQuestions = R.call(R.compose(
+        R.uniqBy(R.prop('id')),
+        R.chain(R.propOr([], 'questions')),
+        R.filter(o => o.questions && o.questions.length),
+      ), [...allOptions, ...allUnits]);
+      console.log(allQuestions);
+      return {
+        fields: [],
+        customFields: allQuestions.map(convertQToField),
+      };
+    }
+    const url = `${endpoint || this.endpoint}/products/${productId}`;
+    const product = R.pathOr([], ['data'], await axios({
+      method: 'get',
+      url,
+      headers,
+    }));
+
+    const allOptions = R.propOr([], 'options', product);
+    const allQuestions = R.call(R.compose(
+      R.uniqBy(R.prop('id')),
+      R.chain(R.propOr([], 'questions')),
+      R.filter(o => o.questions && o.questions.length),
+    ), [
+      ...allOptions,
+      ...R.chain(R.propOr([], 'units'), allOptions),
+    ]);
+    if (!product) return { fields: [] };
     return {
       fields: [],
-      customFields,
+      customFields: allQuestions.map(convertQToField),
     };
   }
 }
