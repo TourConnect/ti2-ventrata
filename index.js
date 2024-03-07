@@ -334,6 +334,8 @@ class Plugin {
       acceptLanguage,
     },
     payload: {
+      orderId,
+      partialOrder,
       rebookingId,
       availabilityKey,
       holder,
@@ -361,6 +363,7 @@ class Plugin {
       method: rebookingId ? 'patch' : 'post',
       url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
       data: {
+        orderId,
         settlementMethod: reference ? 'VOUCHER' : 'DEFERRED',
         ...dataForCreateBooking,
         notes,
@@ -395,7 +398,7 @@ class Plugin {
       }));
     }
     // for booking update, we may not need to confirm again
-    if (!booking.utcConfirmedAt) {
+    if (!booking.utcConfirmedAt && !partialOrder) {
       const dataForConfirmBooking = {
         contact: {
           fullName: `${holder.name} ${holder.surname}`,
