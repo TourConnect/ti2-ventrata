@@ -378,18 +378,22 @@ class Plugin {
       })) : [];
     // for answers to custom fields, ventrata suggest to modify the booking
     if (answers.length) {
-      const modifierBooking = {
+      let modifierBooking = {
         questionAnswers: booking.questionAnswers.map(o => {
           const answer = answers.find(a => a.questionId === o.questionId);
           return answer || o;
         }),
         unitItems: booking.unitItems.map(u => ({
+          ...u,
           questionAnswers: u.questionAnswers.map(o => {
             const answer = answers.find(a => a.questionId === o.questionId);
             return answer || o;
           }),
-        })).filter(u => u.questionAnswers.length),
+        })),
       };
+      if (!modifierBooking.unitItems.find(u => u.questionAnswers && u.questionAnswers.length)) {
+        modifierBooking = R.omit(['unitItems'], modifierBooking);
+      }
       booking = R.path(['data'], await axios({
         method: 'patch',
         url: `${endpoint || this.endpoint}/bookings/${booking.uuid}`,
