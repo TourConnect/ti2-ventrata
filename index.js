@@ -359,6 +359,34 @@ class Plugin {
       acceptLanguage,
     });
     const dataForCreateBooking = await jwt.verify(availabilityKey, this.jwtKey);
+    // if customFieldValues contains perUnitItem fields
+    // we need to overwrite unitItems from the availabilityKey
+    if (customFieldValues && customFieldValues.length) {
+      const productCFV = customFieldValues.filter(o => !R.isNil(o.value) && !o.field.isPerUnitItem);
+      const unitItemCFV = customFieldValues.filter(o => !R.isNil(o.value) && o.field.isPerUnitItem);
+      if (productCFV.length) {
+        dataForCreateBooking.questionAnswers = productCFV.map(o => ({
+          questionId: o.field.id,
+          value: o.value,
+        }));
+      }
+      if (unitItemCFV.length) {
+        dataForCreateBooking.unitItems = R.call(R.compose(
+          R.map(arr => ({
+            unitId: arr[0].field.unitId,
+            questionAnswers: arr.map(o => ({
+              questionId: o.field.id.split('|')[0],
+              value: o.value,
+            })),
+          })),
+          R.values,
+          R.groupBy(o => {
+            const [questionId, unitItemIndex] = o.field.id.split('|');
+            return unitItemIndex;
+          }),
+        ), unitItemCFV);
+      }
+    }
     let booking = R.path(['data'], await axios({
       method: rebookingId ? 'patch' : 'post',
       url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
@@ -371,36 +399,6 @@ class Plugin {
       },
       headers,
     }));
-    const answers = customFieldValues && customFieldValues.length
-      ? customFieldValues.filter(o => !R.isNil(o.value)).map(o => ({
-        questionId: o.field.id,
-        value: o.value,
-      })) : [];
-    // for answers to custom fields, ventrata suggest to modify the booking
-    if (answers.length) {
-      let modifierBooking = {
-        questionAnswers: booking.questionAnswers.map(o => {
-          const answer = answers.find(a => a.questionId === o.questionId);
-          return answer || o;
-        }),
-        unitItems: booking.unitItems.map(u => ({
-          ...u,
-          questionAnswers: u.questionAnswers.map(o => {
-            const answer = answers.find(a => a.questionId === o.questionId);
-            return answer || o;
-          }),
-        })),
-      };
-      if (!modifierBooking.unitItems.find(u => u.questionAnswers && u.questionAnswers.length)) {
-        modifierBooking = R.omit(['unitItems'], modifierBooking);
-      }
-      booking = R.path(['data'], await axios({
-        method: 'patch',
-        url: `${endpoint || this.endpoint}/bookings/${booking.uuid}`,
-        data: modifierBooking,
-        headers,
-      }));
-    }
     // for booking update, we may not need to confirm again
     if (!booking.utcConfirmedAt && !partialOrder) {
       const dataForConfirmBooking = {
@@ -623,8 +621,6 @@ class Plugin {
     },
     query: {
       productId,
-      date,
-      dateFormat,
     },
   }) {
     const headers = getHeaders({
@@ -647,6 +643,7 @@ class Plugin {
         return 'long';
       })(),
       options: o.selectOptions,
+      isPerUnitItem: o.isPerUnitItem,
     });
     if (!productId) {
       const allProducts = R.pathOr([], ['data'], await axios({
@@ -655,13 +652,15 @@ class Plugin {
         headers,
       }));
       const allOptions = R.chain(R.propOr([], 'options'), allProducts);
-      const allUnits = R.chain(R.propOr([], 'units'), allOptions);
+      const allUnits = R.chain(R.propOr([], 'units'), allOptions).map(o => ({ ...o, isPerUnitItem: true }));
       const allQuestions = R.call(R.compose(
         R.uniqBy(R.prop('id')),
-        R.chain(R.propOr([], 'questions')),
+        R.chain(obj => (obj.questions || []).map(q => ({
+          ...q,
+          isPerUnitItem: Boolean(obj.isPerUnitItem),
+        }))),
         R.filter(o => o.questions && o.questions.length),
       ), [...allOptions, ...allUnits]);
-      console.log(allQuestions);
       return {
         fields: [],
         customFields: allQuestions.map(convertQToField),
@@ -677,11 +676,14 @@ class Plugin {
     const allOptions = R.propOr([], 'options', product);
     const allQuestions = R.call(R.compose(
       R.uniqBy(R.prop('id')),
-      R.chain(R.propOr([], 'questions')),
+      R.chain(obj => (obj.questions || []).map(q => ({
+        ...q,
+        isPerUnitItem: Boolean(obj.isPerUnitItem),
+      }))),
       R.filter(o => o.questions && o.questions.length),
     ), [
       ...allOptions,
-      ...R.chain(R.propOr([], 'units'), allOptions),
+      ...R.chain(R.propOr([], 'units'), allOptions).map(o => ({ ...o, isPerUnitItem: true })),
     ]);
     if (!product) return { fields: [] };
     return {
