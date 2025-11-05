@@ -8,6 +8,7 @@ const { translateProduct } = require('./resolvers/product');
 const { translateAvailability } = require('./resolvers/availability');
 const { translateBooking } = require('./resolvers/booking');
 const { translatePickupPoint } = require('./resolvers/pickup-point');
+const { validateCountry } = require('./utils/countrymapping');
 
 const CONCURRENCY = 3; // is this ok ?
 
@@ -69,6 +70,24 @@ class Plugin {
       ['response', 'data', 'errorMessage'],
     ]);
     this.errorPathsAxiosAny = () => ([]); // 200's that should be errors
+  }
+
+  static getSettlementMethod(reference, availableSettlementMethods = []) {
+    // Determine settlement method from product's available methods
+    let settlementMethod = 'DEFERRED'; // default fallback
+
+    if (reference && availableSettlementMethods.includes('VOUCHER')) {
+      settlementMethod = 'VOUCHER';
+    } else if (reference && availableSettlementMethods.includes('DIRECT')) {
+      settlementMethod = 'DIRECT';
+    } else if (availableSettlementMethods.includes('DEFERRED')) {
+      settlementMethod = 'DEFERRED';
+    } else if (availableSettlementMethods.length > 0) {
+      // Use the first available settlement method if none of the preferred ones are available
+      [settlementMethod] = availableSettlementMethods;
+    }
+
+    return settlementMethod;
   }
 
   async validateToken({
@@ -223,12 +242,22 @@ class Plugin {
     const url = `${endpoint || this.endpoint}/availability`;
     const availability = (
       await Promise.map(productIds, async (productId, ix) => {
+        // Fetch product data to get settlement methods
+        const productUrl = `${endpoint || this.endpoint}/products/${productId}`;
+        const productResult = await axios({
+          method: 'get',
+          url: productUrl,
+          headers,
+        });
+        const settlementMethods = R.path(['data', 'settlementMethods'], productResult) || [];
+        // eslint-disable-next-line max-len
+        const unitsWithId = units[ix].filter(u => u.unitId).map(u => ({ id: u.unitId, quantity: u.quantity }));
         const data = {
           productId,
           optionId: optionIds[ix],
           localDateStart,
           localDateEnd,
-          units: units[ix].map(u => ({ id: u.unitId, quantity: u.quantity })),
+          ...(unitsWithId && unitsWithId.length > 0 && { units: unitsWithId }),
         };
         if (currency) data.currency = currency;
         const result = R.path(['data'], await axios({
@@ -247,6 +276,7 @@ class Plugin {
             currency,
             unitsWithQuantity: units[ix],
             jwtKey: this.jwtKey,
+            settlementMethods,
           },
         }));
       }, { concurrency: CONCURRENCY })
@@ -297,18 +327,28 @@ class Plugin {
       acceptLanguage,
       resellerId,
     });
-    const url = `${endpoint || this.endpoint}/availability/calendar`;
     const availability = (
       await Promise.map(productIds, async (productId, ix) => {
+        // Fetch product data to get settlement methods
+        const productUrl = `${endpoint || this.endpoint}/products/${productId}`;
+        const productResult = await axios({
+          method: 'get',
+          url: productUrl,
+          headers,
+        });
+        const settlementMethods = R.path(['data', 'settlementMethods'], productResult) || [];
+        // eslint-disable-next-line max-len
+        const unitsWithId = units[ix].filter(u => u.unitId).map(u => ({ id: u.unitId, quantity: u.quantity }));
         const data = {
           productId,
           optionId: optionIds[ix],
           localDateStart,
           localDateEnd,
           // units is required here to get the total pricing for the calendar
-          units: units[ix].map(u => ({ id: u.unitId, quantity: u.quantity })),
+          ...(unitsWithId && unitsWithId.length > 0 && { units: unitsWithId }),
         };
         if (currency) data.currency = currency;
+        const url = `${endpoint || this.endpoint}/availability/calendar`;
         const result = await axios({
           method: 'post',
           url,
@@ -319,6 +359,14 @@ class Plugin {
           rootValue: avail,
           typeDefs: availTypeDefs,
           query: availQuery,
+          variableValues: {
+            productId,
+            optionId: optionIds[ix],
+            currency,
+            unitsWithQuantity: units[ix],
+            jwtKey: this.jwtKey,
+            settlementMethods,
+          },
         }));
       }, { concurrency: CONCURRENCY })
     );
@@ -381,18 +429,23 @@ class Plugin {
           })),
           R.values,
           R.groupBy(o => {
-            const [questionId, unitItemIndex] = o.field.id.split('|');
+            const [, unitItemIndex] = o.field.id.split('|');
             return unitItemIndex;
           }),
         ), unitItemCFV);
       }
     }
+
+    const settlementMethod = Plugin.getSettlementMethod(
+      reference,
+      dataForCreateBooking.settlementMethods,
+    );
     let booking = R.path(['data'], await axios({
       method: rebookingId ? 'patch' : 'post',
       url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
       data: {
         orderId,
-        settlementMethod: reference ? 'VOUCHER' : 'DEFERRED',
+        settlementMethod,
         ...dataForCreateBooking,
         notes,
         ...(pickupPoint ? { pickupRequested: true, pickupPointId: pickupPoint } : {}),
@@ -401,24 +454,53 @@ class Plugin {
     }));
     // for booking update, we may not need to confirm again
     if (!booking.utcConfirmedAt && !partialOrder) {
+      const validatedCountry = validateCountry(R.pathOr('', ['country'], holder));
+
+      // Ensure required contact fields are present
+      const firstName = R.pathOr('', ['name'], holder).trim();
+      const lastName = R.pathOr('', ['surname'], holder).trim();
+      // Validate required fields
+      if (!firstName || !lastName) {
+        console.error('Customer validation failed: First and last name are required');
+        throw new Error('Customer validation failed: First and last name are required');
+      }
+
+      const fullName = `${firstName} ${lastName}`;
+      const emailAddress = R.pathOr(null, ['emailAddress'], holder);
+      const phoneNumber = R.pathOr('', ['phone'], holder);
+
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (emailAddress && !emailRegex.test(emailAddress)) {
+        console.error(`Customer validation failed: Invalid email format: ${emailAddress}`);
+        throw new Error('Customer validation failed: Invalid email address format');
+      }
       const dataForConfirmBooking = {
         contact: {
-          fullName: `${holder.name} ${holder.surname}`,
-          emailAddress: R.path(['emailAddress'], holder),
-          phoneNumber: R.path(['phone'], holder),
-          locales: R.path(['locales'], holder),
-          country: R.path(['country'], holder),
+          fullName,
+          emailAddress,
+          phoneNumber: phoneNumber || '',
+          locales: R.path(['locales'], holder) || ['en'],
+          country: validatedCountry,
+          postalCode: R.path(['zipCode'], holder) || '',
         },
         notes,
         resellerReference: reference,
-        settlementMethod: reference ? 'VOUCHER' : 'DEFERRED',
+        settlementMethod,
+        ...(emailAddress ? { emailReceipt: true } : ''), // Send email receipt since we have a valid email address
       };
-      booking = R.path(['data'], await axios({
-        method: 'post',
-        url: `${endpoint || this.endpoint}/bookings/${booking.uuid}/confirm`,
-        data: dataForConfirmBooking,
-        headers,
-      }));
+
+      try {
+        booking = R.path(['data'], await axios({
+          method: 'post',
+          url: `${endpoint || this.endpoint}/bookings/${booking.uuid}/confirm`,
+          data: dataForConfirmBooking,
+          headers,
+        }));
+      } catch (error) {
+        console.error('Booking confirmation failed:', error.response?.data || error.message);
+        throw error;
+      }
     }
     return ({
       booking: await translateBooking({

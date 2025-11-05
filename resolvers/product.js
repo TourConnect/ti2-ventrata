@@ -9,6 +9,7 @@ const resolvers = {
     availableCurrencies: R.path(['availableCurrencies']),
     defaultCurrency: R.path(['defaultCurrency']),
     options: R.propOr([], 'options'),
+    settlementMethods: R.path(['settlementMethods']),
   },
   Option: {
     optionId: R.prop('id'),
