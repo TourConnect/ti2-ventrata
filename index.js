@@ -498,7 +498,7 @@ class Plugin {
           headers,
         }));
       } catch (error) {
-        console.error('Booking confirmation failed:', error.response?.data || error.message);
+        console.error('Booking confirmation failed:', (error.response && error.response.data) ? error.response.data : error.message);
         throw error;
       }
     }
