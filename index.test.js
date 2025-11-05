@@ -33,7 +33,7 @@ const app = new Plugin({
 describe('search tests', () => {
   let products;
   let testProduct = {
-    productName: 'Edinburgh Pub Crawl Tour',
+    productName: '[ED3D] Edinburgh 3 Day Pass',
   };
   const token = {
     apiKey: process.env.ti2_ventrata_apiKey,
