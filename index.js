@@ -457,15 +457,15 @@ class Plugin {
       const validatedCountry = validateCountry(R.pathOr('', ['country'], holder));
 
       // Ensure required contact fields are present
-      const firstName = R.pathOr('', ['name'], holder).trim();
-      const lastName = R.pathOr('', ['surname'], holder).trim();
+      const firstName = R.pathOr('', ['name'], holder);
+      const lastName = R.pathOr('', ['surname'], holder);
       // Validate required fields
-      if (!firstName || !lastName) {
+      if (!firstName.trim() || !lastName.trim()) {
         console.error('Customer validation failed: First and last name are required');
         throw new Error('Customer validation failed: First and last name are required');
       }
 
-      const fullName = `${firstName} ${lastName}`;
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
       const emailAddress = R.pathOr(null, ['emailAddress'], holder);
       const phoneNumber = R.pathOr('', ['phone'], holder);
 
@@ -487,7 +487,7 @@ class Plugin {
         notes,
         resellerReference: reference,
         settlementMethod,
-        ...(emailAddress ? { emailReceipt: true } : ''), // Send email receipt since we have a valid email address
+        ...(emailAddress ? { emailReceipt: true } : {}), // Send email receipt since we have a valid email address
       };
 
       try {
