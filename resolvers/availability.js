@@ -12,6 +12,7 @@ const resolvers = {
         currency,
         unitsWithQuantity,
         jwtKey,
+        settlementMethods,
       } = args;
       if (!jwtKey) return null;
       return jwt.sign({
@@ -19,6 +20,7 @@ const resolvers = {
         optionId,
         availabilityId: root.id,
         currency,
+        settlementMethods,
         unitItems: R.chain(u => new Array(u.quantity).fill(1).map(() => ({
           unitId: u.unitId,
         })), unitsWithQuantity),
