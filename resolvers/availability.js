@@ -5,15 +5,16 @@ const jwt = require('jsonwebtoken');
 
 const resolvers = {
   Query: {
-    key: (root, args) => {
+    key: (root, args, context) => {
       const {
         productId,
         optionId,
         currency,
         unitsWithQuantity,
         jwtKey,
-        settlementMethods,
       } = args;
+      // Get settlementMethods from context if not in args
+      const settlementMethods = args.settlementMethods || (context && context.settlementMethods) || [];
       if (!jwtKey) return null;
       return jwt.sign({
         productId,
@@ -58,11 +59,16 @@ const translateAvailability = async ({ rootValue, variableValues, typeDefs, quer
     typeDefs,
     resolvers,
   });
+  // Extract settlementMethods from variableValues to pass via context
+  const settlementMethods = variableValues.settlementMethods || [];
   const retVal = await graphql({
     schema,
     rootValue,
     source: query,
     variableValues,
+    contextValue: {
+      settlementMethods,
+    },
   });
   if (retVal.errors) throw new Error(retVal.errors);
   return retVal.data;
