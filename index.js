@@ -487,7 +487,7 @@ class Plugin {
         notes,
         resellerReference: reference,
         settlementMethod,
-        ...(emailAddress ? { emailReceipt: true } : {}), // Send email receipt since we have a valid email address
+        emailReceipt: true, // always send email to the customer
       };
 
       try {
