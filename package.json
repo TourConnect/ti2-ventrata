@@ -1,6 +1,6 @@
 {
   "name": "ti2-ventrata",
-  "version": "1.0.39",
+  "version": "1.0.40",
   "description": "Ventrata's TI2 Plugin",
   "main": "index.js",
   "scripts": {
