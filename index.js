@@ -435,18 +435,19 @@ class Plugin {
         ), unitItemCFV);
       }
     }
-
+    const { settlementMethods } = dataForCreateBooking;
     const settlementMethod = Plugin.getSettlementMethod(
       reference,
-      dataForCreateBooking.settlementMethods,
+      settlementMethods,
     );
+
     let booking = R.path(['data'], await axios({
       method: rebookingId ? 'patch' : 'post',
       url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
       data: {
         orderId,
         settlementMethod,
-        ...dataForCreateBooking,
+        ...R.omit(['settlementMethods'], dataForCreateBooking),
         notes,
         ...(pickupPoint ? { pickupRequested: true, pickupPointId: pickupPoint } : {}),
       },
