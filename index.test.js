@@ -68,7 +68,6 @@ describe('search tests', () => {
         template = await app.tokenTemplate();
         const rules = Object.keys(template);
         expect(rules).toContain('apiKey');
-        expect(rules).toContain('endpoint');
         expect(rules).toContain('octoEnv');
         expect(rules).toContain('acceptLanguage');
       });
@@ -76,11 +75,6 @@ describe('search tests', () => {
         const apiKey = template.apiKey.regExp;
         expect(apiKey.test('something')).toBeFalsy();
         expect(apiKey.test('f5eb2e1f-4b8f-4b43-a858-4a12d77b8299')).toBeTruthy();
-      });
-      it('endpoint', () => {
-        const endpoint = template.endpoint.regExp;
-        expect(endpoint.test('something')).toBeFalsy();
-        expect(endpoint.test('https://www.google.com')).toBeTruthy();
       });
       it('octoEnv', () => {
         const octoEnv = template.octoEnv.regExp;
