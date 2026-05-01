@@ -49,7 +49,10 @@ const resolvers = {
     pickupPoints: root => R.pathOr([], ['pickupPoints'], root)
       .map(o => ({
         ...o,
-        postal: o.postal_code,
+        postal: o.postal || o.postalCode || o.postal_code || null,
+        city: o.city || o.locality || null,
+        state: o.state || o.region || null,
+        localDateTime: o.localDateTime || o.localDateTimeStart || null,
       })),
   },
 };

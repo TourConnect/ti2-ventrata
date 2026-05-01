@@ -3,6 +3,7 @@ const R = require('ramda');
 const moment = require('moment');
 const faker = require('faker');
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
 
 const Plugin = require('./index');
 
@@ -29,8 +30,9 @@ const app = new Plugin({
   jwtKey: process.env.ti2_ventrata_jwtKey,
   endpoint: process.env.ti2_ventrata_endpoint,
 });
+const describeLive = process.env.RUN_VENTRATA_LIVE_TESTS === 'true' ? describe : describe.skip;
 
-describe('search tests', () => {
+describeLive('search tests', () => {
   let products;
   let testProduct = {
     productName: 'Edinburgh 3 Day Pass',
@@ -334,5 +336,51 @@ describe('search tests', () => {
       expect(Array.isArray(retVal.pickupPoints)).toBeTruthy();
       expect(R.path(['pickupPoints', 0, 'id'], retVal)).toBeTruthy();
     });
+  });
+});
+
+describe('createBooking error handling', () => {
+  it('surfaces provider error message and preserves status details', async () => {
+    const plugin = new Plugin({
+      jwtKey: 'ventrata-test-jwt-key',
+      endpoint: 'https://api.ventrata.com/octo',
+    });
+    const providerError = {
+      response: {
+        status: 400,
+        data: {
+          errorMessage: 'The phone number Collect is invalid.',
+        },
+      },
+      message: 'Request failed with status code 400',
+    };
+    const mockedAxios = jest.fn().mockRejectedValueOnce(providerError);
+
+    const availabilityKey = jwt.sign({
+      settlementMethods: ['DEFERRED'],
+      unitItems: [],
+    }, 'ventrata-test-jwt-key');
+
+    try {
+      await plugin.createBooking({
+        axios: mockedAxios,
+        token: {
+          apiKey: 'test-api-key',
+          endpoint: 'https://api.ventrata.com/octo',
+        },
+        payload: {
+          availabilityKey,
+          holder: {
+            name: 'Test',
+            surname: 'User',
+          },
+        },
+        typeDefsAndQueries,
+      });
+      throw new Error('Expected createBooking to throw');
+    } catch (error) {
+      expect(error.message).toBe('The phone number Collect is invalid.');
+      expect(error.response.status).toBe(400);
+    }
   });
 });
