@@ -29,6 +29,30 @@ const getHeaders = ({
   // 'Octo-Capabilities': 'octo/pricing',
 });
 
+const extractVentrataErrorMessage = err => {
+  const responseData = err && err.response && err.response.data;
+  if (!responseData) return err && err.message;
+  if (typeof responseData === 'string') return responseData;
+  if (responseData.errorMessage) return responseData.errorMessage;
+  if (responseData.message) return responseData.message;
+  if (Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+    const firstError = responseData.errors[0];
+    if (typeof firstError === 'string') return firstError;
+    if (firstError && firstError.message) return firstError.message;
+  }
+  return err && err.message;
+};
+
+const throwWithVentrataErrorMessage = (error, fallbackMessage) => {
+  const normalizedMessage = extractVentrataErrorMessage(error) || fallbackMessage;
+  if (error && typeof error === 'object') {
+    const wrappedError = Object.assign(new Error(normalizedMessage), error);
+    wrappedError.message = normalizedMessage;
+    throw wrappedError;
+  }
+  throw new Error(normalizedMessage);
+};
+
 class Plugin {
   constructor(params) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
@@ -390,7 +414,9 @@ class Plugin {
       notes,
       reference,
       pickupPoint,
+      pickupPointId,
       customFieldValues,
+      participants,
     },
     typeDefsAndQueries: {
       bookingTypeDefs,
@@ -407,33 +433,110 @@ class Plugin {
       acceptLanguage,
     });
     const dataForCreateBooking = await jwt.verify(availabilityKey, this.jwtKey);
-    // if customFieldValues contains perUnitItem fields
-    // we need to overwrite unitItems from the availabilityKey
-    if (customFieldValues && customFieldValues.length) {
-      const productCFV = customFieldValues.filter(o => !R.isNil(o.value) && !o.field.isPerUnitItem);
-      const unitItemCFV = customFieldValues.filter(o => !R.isNil(o.value) && o.field.isPerUnitItem);
-      if (productCFV.length) {
-        dataForCreateBooking.questionAnswers = productCFV.map(o => ({
-          questionId: o.field.id,
-          value: o.value,
-        }));
+    const safeCustomFieldValues = Array.isArray(customFieldValues) ? customFieldValues : [];
+    const safeParticipants = Array.isArray(participants) ? participants : [];
+    const normalizeAnswerValue = rawValue => {
+      // Some TI2 inputs (e.g. option/select fields) can reach us as
+      // { label, value, userInput }. Ventrata questionAnswers.value must be scalar.
+      if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+        if (Object.prototype.hasOwnProperty.call(rawValue, 'value')) {
+          return rawValue.value;
+        }
       }
-      if (unitItemCFV.length) {
-        dataForCreateBooking.unitItems = R.call(R.compose(
-          R.map(arr => ({
-            unitId: arr[0].field.unitId,
-            questionAnswers: arr.map(o => ({
-              questionId: o.field.id.split('|')[0],
-              value: o.value,
-            })),
-          })),
-          R.values,
-          R.groupBy(o => {
-            const [, unitItemIndex] = o.field.id.split('|');
-            return unitItemIndex;
-          }),
-        ), unitItemCFV);
+      return rawValue;
+    };
+    const parsedInt = value => {
+      const num = Number(value);
+      return Number.isInteger(num) ? num : null;
+    };
+    const upsertQuestionAnswer = (answers, nextAnswer) => {
+      const ix = answers.findIndex(existing => existing.questionId === nextAnswer.questionId);
+      if (ix > -1) answers[ix] = nextAnswer;
+      else answers.push(nextAnswer);
+    };
+    const normalizeQuestionId = value => `${value || ''}`.split('|')[0];
+    const bookingQuestionAnswers = [];
+    const unitItemAnswerCandidates = [];
+    const addAnswerEntry = (entry, participantIndex = null) => {
+      if (!entry || R.isNil(entry.value)) return;
+      const field = entry.field || {};
+      const rawFieldId = `${field.id || ''}`;
+      const questionId = normalizeQuestionId(rawFieldId);
+      if (!questionId) return;
+      const normalizedValue = normalizeAnswerValue(entry.value);
+      if (R.isNil(normalizedValue)) return;
+      const [, unitItemIndexRaw] = rawFieldId.split('|');
+      const unitItemIndexFromId = parsedInt(unitItemIndexRaw);
+      const shouldRouteToUnitItem = Boolean(field.isPerUnitItem)
+        || unitItemIndexFromId !== null
+        || (!R.isNil(participantIndex) && Boolean(field.unitId));
+      if (!shouldRouteToUnitItem) {
+        if (R.isNil(participantIndex)) {
+          bookingQuestionAnswers.push({ questionId, value: normalizedValue });
+        }
+        return;
       }
+      unitItemAnswerCandidates.push({
+        questionId,
+        value: normalizedValue,
+        unitId: field.unitId,
+        unitItemIndex: unitItemIndexFromId,
+        participantIndex,
+      });
+    };
+    safeCustomFieldValues.forEach(entry => addAnswerEntry(entry));
+    safeParticipants.forEach((participant, participantIndex) => {
+      const allParticipantEntries = [
+        ...R.pathOr([], ['fields'], participant),
+        ...R.pathOr([], ['customFieldValues'], participant),
+      ];
+      allParticipantEntries.forEach(entry => addAnswerEntry(entry, participantIndex));
+    });
+    if (bookingQuestionAnswers.length) {
+      const existingQuestionAnswers = Array.isArray(dataForCreateBooking.questionAnswers)
+        ? [...dataForCreateBooking.questionAnswers]
+        : [];
+      bookingQuestionAnswers.forEach(answer => {
+        upsertQuestionAnswer(existingQuestionAnswers, answer);
+      });
+      dataForCreateBooking.questionAnswers = existingQuestionAnswers;
+    }
+    if (unitItemAnswerCandidates.length) {
+      const nextUnitItems = Array.isArray(dataForCreateBooking.unitItems)
+        ? dataForCreateBooking.unitItems.map(unitItem => ({
+          ...unitItem,
+          questionAnswers: Array.isArray(unitItem.questionAnswers) ? [...unitItem.questionAnswers] : [],
+        }))
+        : [];
+      unitItemAnswerCandidates.forEach(candidate => {
+        const candidateIndex = (
+          candidate.unitItemIndex !== null
+            ? candidate.unitItemIndex
+            : (
+              !R.isNil(candidate.participantIndex)
+                ? candidate.participantIndex
+                : nextUnitItems.findIndex(item => item.unitId === candidate.unitId)
+            )
+        );
+        let targetIndex = candidateIndex;
+        if (!(targetIndex >= 0 && targetIndex < nextUnitItems.length)) {
+          if (candidate.unitId) {
+            nextUnitItems.push({
+              unitId: candidate.unitId,
+              questionAnswers: [],
+            });
+            targetIndex = nextUnitItems.length - 1;
+          } else {
+            return;
+          }
+        }
+        const targetItem = nextUnitItems[targetIndex];
+        upsertQuestionAnswer(targetItem.questionAnswers, {
+          questionId: candidate.questionId,
+          value: candidate.value,
+        });
+      });
+      dataForCreateBooking.unitItems = nextUnitItems;
     }
     const { settlementMethods } = dataForCreateBooking;
     const settlementMethod = Plugin.getSettlementMethod(
@@ -441,18 +544,26 @@ class Plugin {
       settlementMethods,
     );
 
-    let booking = R.path(['data'], await axios({
-      method: rebookingId ? 'patch' : 'post',
-      url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
-      data: {
-        orderId,
-        settlementMethod,
-        ...R.omit(['settlementMethods'], dataForCreateBooking),
-        notes,
-        ...(pickupPoint ? { pickupRequested: true, pickupPointId: pickupPoint } : {}),
-      },
-      headers,
-    }));
+    let booking;
+    try {
+      booking = R.path(['data'], await axios({
+        method: rebookingId ? 'patch' : 'post',
+        url: `${endpoint || this.endpoint}/bookings${rebookingId ? `/${rebookingId}` : ''}`,
+        data: {
+          orderId,
+          settlementMethod,
+          ...R.omit(['settlementMethods'], dataForCreateBooking),
+          notes,
+          ...((pickupPoint || pickupPointId) ? {
+            pickupRequested: true,
+            pickupPointId: pickupPoint || pickupPointId,
+          } : {}),
+        },
+        headers,
+      }));
+    } catch (error) {
+      throwWithVentrataErrorMessage(error, 'Failed to create booking');
+    }
     // for booking update, we may not need to confirm again
     if (!booking.utcConfirmedAt && !partialOrder) {
       const validatedCountry = validateCountry(R.pathOr('', ['country'], holder));
@@ -500,7 +611,7 @@ class Plugin {
         }));
       } catch (error) {
         console.error('Booking confirmation failed:', (error.response && error.response.data) ? error.response.data : error.message);
-        throw error;
+        throwWithVentrataErrorMessage(error, 'Failed to confirm booking');
       }
     }
     return ({
@@ -715,8 +826,14 @@ class Plugin {
     });
     const convertQToField = o => ({
       id: o.id,
+      ...(o.unitId ? { unitId: o.unitId } : {}),
       subtitle: o.description === o.label ? '' : o.description,
       title: o.label,
+      required: Boolean(o.required),
+      requiredPerBooking: Boolean(o.required),
+      requiredPerParticipant: Boolean(o.isPerUnitItem && o.required),
+      visiblePerBooking: true,
+      visiblePerParticipant: Boolean(o.isPerUnitItem),
       type: (() => {
         if (o.inputType === 'radio') return 'radio';
         if (Array.isArray(o.selectOptions) && o.selectOptions.length) return 'extended-option';
@@ -728,6 +845,19 @@ class Plugin {
       options: o.selectOptions,
       isPerUnitItem: o.isPerUnitItem,
     });
+    const normalizeQuestion = ({ question, context }) => ({
+      ...question,
+      isPerUnitItem: Boolean(context.isPerUnitItem),
+      ...(context.unitId ? { unitId: context.unitId } : {}),
+    });
+    const collectQuestions = roots => R.call(R.compose(
+      R.uniqBy(q => `${q.id}|${q.unitId || ''}|${Boolean(q.isPerUnitItem)}`),
+      R.chain(obj => (obj.questions || []).map(question => normalizeQuestion({
+        question,
+        context: obj,
+      }))),
+      R.filter(o => o.questions && o.questions.length),
+    ), roots);
     if (!productId) {
       const allProducts = R.pathOr([], ['data'], await axios({
         method: 'get',
@@ -735,15 +865,12 @@ class Plugin {
         headers,
       }));
       const allOptions = R.chain(R.propOr([], 'options'), allProducts);
-      const allUnits = R.chain(R.propOr([], 'units'), allOptions).map(o => ({ ...o, isPerUnitItem: true }));
-      const allQuestions = R.call(R.compose(
-        R.uniqBy(R.prop('id')),
-        R.chain(obj => (obj.questions || []).map(q => ({
-          ...q,
-          isPerUnitItem: Boolean(obj.isPerUnitItem),
-        }))),
-        R.filter(o => o.questions && o.questions.length),
-      ), [...allOptions, ...allUnits]);
+      const allUnits = R.chain(R.propOr([], 'units'), allOptions).map(u => ({
+        ...u,
+        isPerUnitItem: true,
+        unitId: u.id,
+      }));
+      const allQuestions = collectQuestions([...allOptions, ...allUnits]);
       return {
         fields: [],
         customFields: allQuestions.map(convertQToField),
@@ -757,16 +884,13 @@ class Plugin {
     }));
 
     const allOptions = R.propOr([], 'options', product);
-    const allQuestions = R.call(R.compose(
-      R.uniqBy(R.prop('id')),
-      R.chain(obj => (obj.questions || []).map(q => ({
-        ...q,
-        isPerUnitItem: Boolean(obj.isPerUnitItem),
-      }))),
-      R.filter(o => o.questions && o.questions.length),
-    ), [
+    const allQuestions = collectQuestions([
       ...allOptions,
-      ...R.chain(R.propOr([], 'units'), allOptions).map(o => ({ ...o, isPerUnitItem: true })),
+      ...R.chain(R.propOr([], 'units'), allOptions).map(u => ({
+        ...u,
+        isPerUnitItem: true,
+        unitId: u.id,
+      })),
     ]);
     if (!product) return { fields: [] };
     return {

@@ -2,6 +2,30 @@ const { makeExecutableSchema } = require('@graphql-tools/schema');
 const R = require('ramda');
 const { graphql } = require('graphql');
 
+const isHttpUrl = value => typeof value === 'string' && /^https?:\/\//i.test(value);
+
+const getFirstHttpDeliveryUrl = root => {
+  const voucherDeliveryOptions = R.pathOr([], ['voucher', 'deliveryOptions'], root);
+  const ticketDeliveryOptions = R.chain(
+    item => R.pathOr([], ['ticket', 'deliveryOptions'], item),
+    R.pathOr([], ['unitItems'], root),
+  );
+  return R.call(
+    R.compose(
+      R.find(isHttpUrl),
+      R.map(R.prop('deliveryValue')),
+      R.flatten,
+    ),
+    [voucherDeliveryOptions, ticketDeliveryOptions],
+  ) || null;
+};
+
+const getBookingUrl = root => (
+  R.path(['checkinUrl'], root)
+  || getFirstHttpDeliveryUrl(root)
+  || null
+);
+
 const capitalize = sParam => {
   if (typeof sParam !== 'string') return '';
   const s = sParam.replace(/_/g, ' ');
@@ -49,8 +73,8 @@ const resolvers = {
     },
     optionId: R.path(['option', 'id']),
     optionName: root => R.path(['option', 'title'], root) || R.path(['option', 'internalName'], root),
-    publicUrl: () => null,
-    privateUrl: () => null,
+    publicUrl: getBookingUrl,
+    privateUrl: getBookingUrl,
     pickupRequested: R.prop('pickupRequested'),
     pickupPointId: R.prop('pickupPointId'),
     pickupPoint: root => {
@@ -58,7 +82,10 @@ const resolvers = {
       if (!pickupPoint) return null;
       return {
         ...pickupPoint,
-        postal: pickupPoint.postal_code,
+        postal: pickupPoint.postal || pickupPoint.postalCode || pickupPoint.postal_code || null,
+        city: pickupPoint.city || pickupPoint.locality || null,
+        state: pickupPoint.state || pickupPoint.region || null,
+        localDateTime: pickupPoint.localDateTime || pickupPoint.localDateTimeStart || null,
       };
     },
   },
