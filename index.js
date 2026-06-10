@@ -677,7 +677,7 @@ class Plugin {
     },
     payload: {
       bookingId,
-      resellerReference,
+      reference,
       supplierBookingId,
       travelDateStart,
       travelDateEnd,
@@ -690,7 +690,7 @@ class Plugin {
   }) {
     assert(
       !isNilOrEmpty(bookingId)
-      || !isNilOrEmpty(resellerReference)
+      || !isNilOrEmpty(reference)
       || !isNilOrEmpty(supplierBookingId)
       || !(
         isNilOrEmpty(travelDateStart) && isNilOrEmpty(travelDateEnd) && isNilOrEmpty(dateFormat)
@@ -724,8 +724,8 @@ class Plugin {
           searchByUrl(`${endpoint || this.endpoint}/bookings?supplierReference=${bookingId}`),
         ]);
       }
-      if (!isNilOrEmpty(resellerReference)) {
-        url = `${endpoint || this.endpoint}/bookings?resellerReference=${resellerReference}`;
+      if (!isNilOrEmpty(reference)) {
+        url = `${endpoint || this.endpoint}/bookings?resellerReference=${reference}`;
         return R.path(['data'], await axios({
           method: 'get',
           url,
