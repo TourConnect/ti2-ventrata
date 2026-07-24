@@ -96,6 +96,10 @@ class Plugin {
     this.errorPathsAxiosAny = () => ([]); // 200's that should be errors
   }
 
+  static settlementMethodRequiresResellerReference(settlementMethod) {
+    return ['DIRECT', 'VOUCHER'].includes(settlementMethod);
+  }
+
   static getSettlementMethod(reference, availableSettlementMethods = []) {
     // Determine settlement method from product's available methods
     let settlementMethod = 'DEFERRED'; // default fallback
@@ -542,6 +546,11 @@ class Plugin {
     const settlementMethod = Plugin.getSettlementMethod(
       reference,
       settlementMethods,
+    );
+
+    assert(
+      !Plugin.settlementMethodRequiresResellerReference(settlementMethod) || !isNilOrEmpty(reference),
+      `Agent reference is required for ${settlementMethod} booking.`,
     );
 
     let booking;
