@@ -180,6 +180,139 @@ describe('ventrata mappings', () => {
     );
   });
 
+  const bookingResponse = {
+    id: 'booking-id',
+    uuid: 'booking-uuid',
+    orderId: 'order-id',
+    orderReference: 'order-ref',
+    supplierReference: 'supplier-ref',
+    status: 'CONFIRMED',
+    product: { id: 'product-1', internalName: 'Product' },
+    option: { id: 'DEFAULT', internalName: 'DEFAULT' },
+    availability: { localDateTimeStart: '2026-05-02T08:00:00', localDateTimeEnd: '2026-05-02T10:00:00' },
+    contact: { fullName: 'Test User' },
+    cancellable: true,
+    utcCreatedAt: '2026-05-01T00:00:00Z',
+    pricing: { retail: 1000 },
+    unitItems: [{ uuid: 'unit-item-1', unitId: 'adult-unit', internalName: 'Adult' }],
+    utcConfirmedAt: '2026-05-01T00:00:01Z',
+  };
+
+  it.each(['VOUCHER', 'DIRECT'])(
+    'requires agent reference when the selected settlement method is %s',
+    async settlementMethod => {
+      const plugin = new Plugin({
+        jwtKey: 'test-jwt-key',
+        endpoint: 'https://example.test/octo',
+      });
+
+      jest.spyOn(jwt, 'verify').mockReturnValue({
+        productId: 'product-1',
+        optionId: 'DEFAULT',
+        availabilityId: 'avail-1',
+        unitItems: [{ unitId: 'adult-unit' }],
+        settlementMethods: [settlementMethod],
+      });
+
+      const axios = jest.fn().mockResolvedValue({ data: bookingResponse });
+
+      await expect(plugin.createBooking({
+        axios,
+        token: { apiKey: 'api-key' },
+        payload: {
+          availabilityKey: 'signed-key',
+          holder: { name: 'Test', surname: 'User', country: 'US' },
+        },
+        typeDefsAndQueries: {
+          bookingTypeDefs: ti2BookingTypeDefs,
+          bookingQuery: ti2BookingQuery,
+        },
+      })).rejects.toThrow(`Agent reference is required for ${settlementMethod} booking.`);
+
+      expect(axios).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['VOUCHER', 'DIRECT'])(
+    'allows %s settlement when agent reference is provided',
+    async settlementMethod => {
+      const plugin = new Plugin({
+        jwtKey: 'test-jwt-key',
+        endpoint: 'https://example.test/octo',
+      });
+
+      jest.spyOn(jwt, 'verify').mockReturnValue({
+        productId: 'product-1',
+        optionId: 'DEFAULT',
+        availabilityId: 'avail-1',
+        unitItems: [{ unitId: 'adult-unit' }],
+        settlementMethods: [settlementMethod, 'DEFERRED'],
+      });
+
+      const axios = jest.fn().mockResolvedValue({ data: bookingResponse });
+
+      await plugin.createBooking({
+        axios,
+        token: { apiKey: 'api-key' },
+        payload: {
+          availabilityKey: 'signed-key',
+          holder: { name: 'Test', surname: 'User', country: 'US' },
+          reference: 'AGENT-REF-123',
+        },
+        typeDefsAndQueries: {
+          bookingTypeDefs: ti2BookingTypeDefs,
+          bookingQuery: ti2BookingQuery,
+        },
+      });
+
+      const createBookingCall = axios.mock.calls.find(call => call[0].url === 'https://example.test/octo/bookings');
+      expect(createBookingCall).toBeTruthy();
+      expect(createBookingCall[0].data).toEqual(
+        expect.objectContaining({
+          settlementMethod,
+        }),
+      );
+    },
+  );
+
+  it('falls back to DEFERRED without agent reference when DEFERRED is available', async () => {
+    const plugin = new Plugin({
+      jwtKey: 'test-jwt-key',
+      endpoint: 'https://example.test/octo',
+    });
+
+    jest.spyOn(jwt, 'verify').mockReturnValue({
+      productId: 'product-1',
+      optionId: 'DEFAULT',
+      availabilityId: 'avail-1',
+      unitItems: [{ unitId: 'adult-unit' }],
+      settlementMethods: ['VOUCHER', 'DIRECT', 'DEFERRED'],
+    });
+
+    const axios = jest.fn().mockResolvedValue({ data: bookingResponse });
+
+    await plugin.createBooking({
+      axios,
+      token: { apiKey: 'api-key' },
+      payload: {
+        availabilityKey: 'signed-key',
+        holder: { name: 'Test', surname: 'User', country: 'US' },
+      },
+      typeDefsAndQueries: {
+        bookingTypeDefs: ti2BookingTypeDefs,
+        bookingQuery: ti2BookingQuery,
+      },
+    });
+
+    const createBookingCall = axios.mock.calls.find(call => call[0].url === 'https://example.test/octo/bookings');
+    expect(createBookingCall).toBeTruthy();
+    expect(createBookingCall[0].data).toEqual(
+      expect.objectContaining({
+        settlementMethod: 'DEFERRED',
+      }),
+    );
+  });
+
   it('maps participant-scoped custom fields from standard ti2 payload into unitItems questionAnswers', async () => {
     const plugin = new Plugin({
       jwtKey: 'test-jwt-key',
