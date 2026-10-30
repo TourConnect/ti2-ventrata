@@ -9,6 +9,7 @@ const { translateAvailability } = require('./resolvers/availability');
 const { translateBooking } = require('./resolvers/booking');
 const { translatePickupPoint } = require('./resolvers/pickup-point');
 const { validateCountry } = require('./utils/countrymapping');
+const { getOctoList } = require('./utils/octoPagination');
 
 const CONCURRENCY = 3; // is this ok ?
 
@@ -163,12 +164,6 @@ class Plugin {
       productQuery,
     },
   }) {
-    let url = `${endpoint || this.endpoint}/products`;
-    if (!isNilOrEmpty(payload)) {
-      if (payload.productId) {
-        url = `${url}/${payload.productId}`;
-      }
-    }
     const headers = getHeaders({
       apiKey,
       endpoint,
@@ -176,12 +171,22 @@ class Plugin {
       acceptLanguage,
       resellerId,
     });
-    let results = R.pathOr([], ['data'], await axios({
-      method: 'get',
-      url,
-      headers,
-    }));
-    if (!Array.isArray(results)) results = [results];
+    const productId = !isNilOrEmpty(payload) ? payload.productId : undefined;
+    let results;
+    if (!isNilOrEmpty(productId)) {
+      const singleProduct = R.path(['data'], await axios({
+        method: 'get',
+        url: `${endpoint || this.endpoint}/products/${productId}`,
+        headers,
+      }));
+      results = singleProduct == null ? [] : [singleProduct];
+    } else {
+      results = await getOctoList({
+        axios,
+        url: `${endpoint || this.endpoint}/products`,
+        headers,
+      });
+    }
     let products = await Promise.map(
       results,
       product => translateProduct({
@@ -725,39 +730,44 @@ class Plugin {
       }
     };
     const bookings = await (async () => {
-      let url;
+      const baseUrl = endpoint || this.endpoint;
       if (!isNilOrEmpty(bookingId)) {
         return Promise.all([
-          searchByUrl(`${endpoint || this.endpoint}/bookings/${bookingId}`),
-          searchByUrl(`${endpoint || this.endpoint}/bookings?resellerReference=${bookingId}`),
-          searchByUrl(`${endpoint || this.endpoint}/bookings?supplierReference=${bookingId}`),
+          searchByUrl(`${baseUrl}/bookings/${bookingId}`),
+          getOctoList({
+            axios,
+            url: `${baseUrl}/bookings?resellerReference=${bookingId}`,
+            headers,
+          }),
+          getOctoList({
+            axios,
+            url: `${baseUrl}/bookings?supplierReference=${bookingId}`,
+            headers,
+          }),
         ]);
       }
       if (!isNilOrEmpty(reference)) {
-        url = `${endpoint || this.endpoint}/bookings?resellerReference=${reference}`;
-        return R.path(['data'], await axios({
-          method: 'get',
-          url,
+        return getOctoList({
+          axios,
+          url: `${baseUrl}/bookings?resellerReference=${reference}`,
           headers,
-        }));
+        });
       }
       if (!isNilOrEmpty(supplierBookingId)) {
-        url = `${endpoint || this.endpoint}/bookings?supplierReference=${supplierBookingId}`;
-        return R.path(['data'], await axios({
-          method: 'get',
-          url,
+        return getOctoList({
+          axios,
+          url: `${baseUrl}/bookings?supplierReference=${supplierBookingId}`,
           headers,
-        }));
+        });
       }
       if (!isNilOrEmpty(travelDateStart)) {
         const localDateStart = moment(travelDateStart, dateFormat).format();
         const localDateEnd = moment(travelDateEnd, dateFormat).format();
-        url = `${endpoint || this.endpoint}/bookings?localDateStart=${encodeURIComponent(localDateStart)}&localDateEnd=${encodeURIComponent(localDateEnd)}`;
-        return R.path(['data'], await axios({
-          method: 'get',
-          url,
+        return getOctoList({
+          axios,
+          url: `${baseUrl}/bookings?localDateStart=${encodeURIComponent(localDateStart)}&localDateEnd=${encodeURIComponent(localDateEnd)}`,
           headers,
-        }));
+        });
       }
       return [];
     })();
@@ -784,7 +794,6 @@ class Plugin {
       pickupQuery,
     },
   }) {
-    const url = `${endpoint || this.endpoint}/products`;
     const headers = getHeaders({
       apiKey,
       endpoint,
@@ -792,11 +801,11 @@ class Plugin {
       acceptLanguage,
       resellerId,
     });
-    const products = R.pathOr([], ['data'], await axios({
-      method: 'get',
-      url,
+    const products = await getOctoList({
+      axios,
+      url: `${endpoint || this.endpoint}/products`,
       headers,
-    }));
+    });
     const pickupPoints = R.call(R.compose(
       R.uniqBy(R.prop('id')),
       R.chain(R.propOr([], 'pickupPoints')),
@@ -868,11 +877,11 @@ class Plugin {
       R.filter(o => o.questions && o.questions.length),
     ), roots);
     if (!productId) {
-      const allProducts = R.pathOr([], ['data'], await axios({
-        method: 'get',
+      const allProducts = await getOctoList({
+        axios,
         url: `${endpoint || this.endpoint}/products`,
         headers,
-      }));
+      });
       const allOptions = R.chain(R.propOr([], 'options'), allProducts);
       const allUnits = R.chain(R.propOr([], 'units'), allOptions).map(u => ({
         ...u,
