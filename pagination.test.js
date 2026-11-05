@@ -32,6 +32,36 @@ const ventrataBooking = id => ({
 });
 
 describe('OCTO list pagination', () => {
+  it('deduplicates overlapping cursor pages by stable product id', async () => {
+    const axios = jest.fn()
+      .mockResolvedValueOnce(productPage([ventrataProduct('p1')], 'cursor-2'))
+      .mockResolvedValueOnce(productPage([
+        { ...ventrataProduct('p1'), internalName: 'Later duplicate' },
+        ventrataProduct('p2'),
+      ]));
+    const result = await plugin.searchProducts({
+      axios,
+      token,
+      typeDefsAndQueries: { productTypeDefs, productQuery },
+    });
+    expect(result.products.map(product => product.productId)).toEqual(['p1', 'p2']);
+    expect(result.products[0].productName).toBe('Product p1');
+  });
+
+  it('rejects missing product ids and later page failures', async () => {
+    const args = { token, typeDefsAndQueries: { productTypeDefs, productQuery } };
+    await expect(plugin.searchProducts({
+      ...args,
+      axios: async () => productPage([{ internalName: 'invalid' }]),
+    })).rejects.toThrow('Ventrata product catalog row did not return an id');
+    await expect(plugin.searchProducts({
+      ...args,
+      axios: jest.fn()
+        .mockResolvedValueOnce(productPage([ventrataProduct('p1')], 'cursor-2'))
+        .mockRejectedValueOnce(new Error('upstream unavailable')),
+    })).rejects.toThrow('upstream unavailable');
+  });
+
   it('loads every product page before filtering', async () => {
     const axios = jest.fn()
       .mockResolvedValueOnce(productPage([ventrataProduct('p1')], 'cursor-2'))
@@ -46,6 +76,15 @@ describe('OCTO list pagination', () => {
     expect(axios.mock.calls[0][0].params).toEqual({ limit: 100 });
     expect(axios.mock.calls[0][0].url).toBe('https://api.ventrata.com/octo/products');
     expect(axios.mock.calls[1][0].params).toEqual({ limit: 100, page: 'cursor-2' });
+  });
+
+  it('rejects a single product response without an id', async () => {
+    await expect(plugin.searchProducts({
+      axios: async () => ({ data: { internalName: 'invalid' } }),
+      token,
+      payload: { productId: 'p1' },
+      typeDefsAndQueries: { productTypeDefs, productQuery },
+    })).rejects.toThrow('Ventrata product catalog row did not return an id');
   });
 
   it('does not paginate a single product lookup', async () => {
