@@ -313,6 +313,49 @@ describe('ventrata mappings', () => {
     );
   });
 
+  it('surfaces the Ventrata error message when Ti2 rejects the confirm call with a plain string', async () => {
+    const plugin = new Plugin({
+      jwtKey: 'test-jwt-key',
+      endpoint: 'https://example.test/octo',
+    });
+
+    jest.spyOn(jwt, 'verify').mockReturnValue({
+      productId: 'product-1',
+      optionId: 'DEFAULT',
+      availabilityId: 'avail-1',
+      unitItems: [{ unitId: 'adult-unit' }],
+      settlementMethods: ['DEFERRED'],
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const unconfirmedBooking = { ...bookingResponse };
+    delete unconfirmedBooking.utcConfirmedAt;
+    const axios = jest.fn()
+      .mockResolvedValueOnce({ data: unconfirmedBooking })
+      // Ti2's axios interceptor rejects with the extracted errorMessage
+      // string (e.g. from response.data.errorMessage), not an Axios error.
+      .mockRejectedValueOnce('An outstanding balance must be paid to complete the request');
+
+    await expect(plugin.createBooking({
+      axios,
+      token: { apiKey: 'api-key' },
+      payload: {
+        availabilityKey: 'signed-key',
+        holder: { name: 'Test', surname: 'User', country: 'US' },
+        reference: 'AGENT-REF-123',
+      },
+      typeDefsAndQueries: {
+        bookingTypeDefs: ti2BookingTypeDefs,
+        bookingQuery: ti2BookingQuery,
+      },
+    })).rejects.toThrow('An outstanding balance must be paid to complete the request');
+
+    expect(console.error).toHaveBeenCalledWith(
+      'Booking confirmation failed:',
+      'An outstanding balance must be paid to complete the request',
+    );
+  });
+
   it('maps participant-scoped custom fields from standard ti2 payload into unitItems questionAnswers', async () => {
     const plugin = new Plugin({
       jwtKey: 'test-jwt-key',

@@ -31,6 +31,9 @@ const getHeaders = ({
 });
 
 const extractVentrataErrorMessage = err => {
+  // Ti2's axios interceptor (ti2/index.js) rejects with the extracted
+  // errorMessage string rather than the original Axios error object.
+  if (typeof err === 'string' && err.trim()) return err;
   const responseData = err && err.response && err.response.data;
   if (!responseData) return err && err.message;
   if (typeof responseData === 'string') return responseData;
@@ -187,6 +190,16 @@ class Plugin {
         headers,
       });
     }
+    const productIds = new Set();
+    results = results.filter(product => {
+      assert(
+        product && typeof product.id === 'string' && product.id.trim(),
+        'Ventrata product catalog row did not return an id',
+      );
+      if (productIds.has(product.id)) return false;
+      productIds.add(product.id);
+      return true;
+    });
     let products = await Promise.map(
       results,
       product => translateProduct({
@@ -197,7 +210,13 @@ class Plugin {
     );
     // dynamic extra filtering
     if (!isNilOrEmpty(payload)) {
-      const extraFilters = R.omit(['productId'], payload);
+      // Keep control keys in sync with Ti2's lib/hasProductSearchSelector.js controlFields.
+      const extraFilters = R.omit([
+        'productId', 'forceRefresh', 'requestId', 'backgroundJob', 'cacheOnly',
+        'fullSyncTrigger', 'admissionOverrideReason', 'fullSyncStartedAt',
+        'fullSyncAdmissionToken', 'scheduledProductSyncEnabled', 'omitServiceCodes',
+        'pickupPointsRequired', 'credentials',
+      ], payload);
       if (Object.keys(extraFilters).length > 0) {
         products = products.filter(
           product => Object.entries(extraFilters).every(
@@ -624,7 +643,7 @@ class Plugin {
           headers,
         }));
       } catch (error) {
-        console.error('Booking confirmation failed:', (error.response && error.response.data) ? error.response.data : error.message);
+        console.error('Booking confirmation failed:', extractVentrataErrorMessage(error) || 'Failed to confirm booking');
         throwWithVentrataErrorMessage(error, 'Failed to confirm booking');
       }
     }
